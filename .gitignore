@@ -4,6 +4,7 @@ tcp_client
 udp_client
 tcp_server
 udp_server
+command_handlers
 
 # text file
 apoio.txt
