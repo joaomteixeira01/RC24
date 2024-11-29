@@ -1,3 +1,5 @@
+# Code artifacts
+.vscode
 
 # Binaries 
 tcp_client
@@ -8,3 +10,7 @@ command_handlers
 
 # text file
 apoio.txt
+
+# MacOS artifacts
+.DS_Store
+
