@@ -1,3 +1,21 @@
+/*
+ * This file implements the main function for a client application that communicates 
+ * with a game server via UDP and TCP. The application processes user commands and 
+ * interacts with the server to manage game sessions. 
+ *
+ * Main Features:
+ * - Processes command-line arguments to configure the server's IP and port.
+ * - Initializes TCP and UDP sockets for communication with the server.
+ * - Implements a command-line interface to handle the following user commands:
+ *   - start: Starts a new game session with the server.
+ *   - try: Submits a guess for the game.
+ *   - show_trials (or st): Retrieves and displays trial information via TCP.
+ *   - scoreboard (or sb): Retrieves the scoreboard via TCP.
+ *   - quit: Ends the current game session.
+ *   - exit: Exits the client application, optionally notifying the server.
+ *   - debug: Sends debugging data to the server for testing.
+ */
+
 #include "client.h"
 #include "command_handlers.h"
 

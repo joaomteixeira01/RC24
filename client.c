@@ -1,3 +1,20 @@
+/*
+ * This file contains functions to initialize and manage TCP and UDP socket connections 
+ * with a remote server. It includes the following functions:
+ *
+ * - int initialize_sockets(int* fdudp, int* fdtcp, struct addrinfo *restcp, struct addrinfo *resudp):
+ *   Initializes TCP and UDP sockets and establishes a connection to the specified server.
+ *
+ * - int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buffer):
+ *   Sends a message to the server using UDP and receives the response.
+ *
+ * - int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer):
+ *   Sends a message to the server using TCP and receives the response.
+ *
+ * - void close_connection(int fdudp, int fdtcp, struct addrinfo *restcp, struct addrinfo *resudp):
+ *   Closes the TCP and UDP sockets and frees associated resources.
+ */
+
 #include "client.h"
 
 int initialize_sockets(int* fdudp, int* fdtcp, struct addrinfo *restcp, struct addrinfo *resudp) {

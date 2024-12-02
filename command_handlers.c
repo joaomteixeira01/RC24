@@ -1,9 +1,22 @@
-#include <stdio.h>        // For printf, snprintf
-#include <stdlib.h>       // For exit
-#include <string.h>       // For strncmp, memset
-#include <netdb.h>        // For struct addrinfo and networking functions
+/*
+ * This file implements the handlers for various client commands to interact 
+ * with the Game Server using UDP and TCP protocols. Each function corresponds 
+ * to a specific command and manages message formatting, communication, and 
+ * response processing.
+ *
+ * Implemented Commands:
+ * - handle_start: Starts a new game session.
+ * - handle_try: Submits a guess for the game.
+ * - handle_show_trials: Retrieves the list of previous trials via TCP.
+ * - handle_scoreboard: Fetches the game's scoreboard via TCP.
+ */
 
-#include "client.h"       // For send_udp, send_tcp, and shared socket utilities
+#include <stdio.h>        
+#include <stdlib.h>       
+#include <string.h>       
+#include <netdb.h>        
+
+#include "client.h"       
 #include "command_handlers.h"
 
 void handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime) {
@@ -62,7 +75,14 @@ void handle_show_trials(int fdtcp, struct addrinfo *restcp) {
 }
 
 void handle_scoreboard(int fdtcp, struct addrinfo *restcp) {
-    // Implementar
+    char message[] = "SCOREBOARD\n";
+    char buffer[1024];
+
+    if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
+        printf("Error: Failed to fetch scoreboard\n");
+    } else {
+        printf("Scoreboard:\n%s\n", buffer);
+    }
 }
 
 void handle_quit(int fdudp, struct addrinfo *resudp, char *plid) {
