@@ -30,7 +30,7 @@ int initialize_sockets(int* fdudp, int* fdtcp, struct addrinfo *restcp, struct a
     errcode = getaddrinfo("tejo.tecnico.ulisboa.pt", PORT, &hints, &restcp);
     if (errcode == -1) return -1;
 
-    if(connect(*fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) 
+    if(connect(*fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) // TODO Only connect when needed
         return -1;
     
     fdudp = socket(AF_INET, SOCK_DGRAM,0);
@@ -46,6 +46,8 @@ int initialize_sockets(int* fdudp, int* fdtcp, struct addrinfo *restcp, struct a
     return 0;
 }
 
+// TODO maybe (probably) implement select for timeouts
+
 int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buffer) {
     int n;
 
@@ -58,7 +60,7 @@ int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buff
     return 0;
 }
 
-int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) {
+int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) { // TODO restcp not needed, remove
     int n;
 
     n = write(fdtcp, message, strlen(message) + 1);

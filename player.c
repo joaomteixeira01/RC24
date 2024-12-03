@@ -67,7 +67,7 @@ int main (int argc, char** argv){
                 printf("Usage: start PLID max_playtime\n");
 
         /* try command */
-        } else if (strncmp(command, "try", 3) == 0) {
+        } else if (strncmp(command, "try", 3) == 0) { // TODO verify colors
             char guess[10];
             if (sscanf(command, "try %s", guess) == 1)
                 handle_try(fdudp, resudp, guess);
@@ -75,7 +75,7 @@ int main (int argc, char** argv){
                 printf("Usage: try C1 C2 C3 C4\n");
 
         /* show_trials command */
-        } else if (strncmp(command, "show_trials", 11) == 0 || strncmp(command, "st", 2) == 0) {
+        } else if (strncmp(command, "show_trials", 11) == 0 || strncmp(command, "st", 2) == 0) { 
             handle_show_trials(fdtcp, restcp);
 
         /* scoreboard command */
