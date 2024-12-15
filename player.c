@@ -15,27 +15,28 @@
  *   - exit: Exits the client application, optionally notifying the server.
  *   - debug: Sends debugging data to the server for testing.
  */
-
+#include <stdbool.h>
 #include "client.h"
 #include "command_handlers.h"
 
 int main (int argc, char** argv){
     char *gs_ip = NULL;
-    int gs_port = 58053;
-    int fdudp, fdtcp;
+    char *gs_port = PORT;
+    bool in_game = false;
+    char plid[7] = {0};
+    int fdudp, fdtcp, nT = 0;
     struct addrinfo *resudp, *restcp;
     char command[256];
-
     // Process command-line arguments
     int opt;
-    while ((opt = getopt(argc, argv, "n:p:")) != -1) {
+    while ((opt = getopt(argc, argv, "np")) != -1) {
         switch (opt) {
             case 'n':
                 gs_ip = optarg;
                 break;
             
             case 'p':
-                gs_port = atoi(optarg);
+                gs_port = optarg;
                 break;
             
             default:
@@ -53,27 +54,51 @@ int main (int argc, char** argv){
     // Main command loop to process user input
     while (1) {
         printf("> ");
-        if (fgets(command, sizeof(command), stdin) == NULL)
+        if (fgets(command, sizeof(command), stdin) == NULL){
+            perror("fgets");
             break; // Exit the loop if input is invalid 
+        }
 
         //----------- Parse commands -----------//
         /* start command */
         if (strncmp(command, "start", 5) == 0) {
-            char plid[7];   // Buffer for the PLID (6 digits + null terminator)
             int max_playtime;
-            if (sscanf(command, "start %6s %d", plid, &max_playtime) == 2)
-                handle_start(fdudp, resudp, plid, max_playtime);
-            else
+            if (sscanf(command, "start %6s %d", plid, &max_playtime) == 2){
+                if (strlen(plid) != 6) {
+                    printf("Error: Invalid PLID\n");
+                    continue;
+                }
+                int ret = handle_start(fdudp, resudp, plid, max_playtime);
+                if (ret == -1 && !in_game) memset(plid, 0, sizeof(plid));
+                else if (ret == 0) in_game = true;
+                    
+            }
+            else{
                 printf("Usage: start PLID max_playtime\n");
+                continue;
+            }
+
 
         /* try command */
-        } else if (strncmp(command, "try", 3) == 0) { // TODO verify colors
+        } else if (strncmp(command, "try", 3) == 0) {
             char guess[10];
-            if (sscanf(command, "try %s", guess) == 1)
-                handle_try(fdudp, resudp, guess);
-            else
-                printf("Usage: try C1 C2 C3 C4\n");
-
+            if (sscanf(command, "try %[^\n]s", guess) == 1) {
+                char colors[4];
+                if (sscanf(guess, "%c %c %c %c", &colors[0], &colors[1], &colors[2], &colors[3]) == 4){
+                    for (int i = 0; i < 4; i++){
+                        if (colors[i] != 'R' && colors[i] != 'G' && colors[i] != 'B' && colors[i] != 'Y' && colors[i] != 'O' && colors[i] != 'P') {
+                            printf("Error: Invalid colors\n");
+                            continue;
+                        }
+                    }
+                } else {
+                    printf("Usage: try C1 C2 C3 C4\n");
+                    continue;
+                }
+                handle_try(fdudp, resudp, guess, ++nT, plid); 
+            }
+            else printf("Usage: try C1 C2 C3 C4\n");
+                
         /* show_trials command */
         } else if (strncmp(command, "show_trials", 11) == 0 || strncmp(command, "st", 2) == 0) { 
             handle_show_trials(fdtcp, restcp);
@@ -84,23 +109,13 @@ int main (int argc, char** argv){
 
         /* quit command */
         } else if (strncmp(command, "quit", 4) == 0) {
-            char plid[7];
-            if (sscanf(command, "quit %6s", plid) == 1)
-                handle_quit(fdudp, resudp, plid);
-            else
-                printf("Usage: quit PLID\n");
-
+            handle_quit(fdudp, resudp, plid);
         /* exit command */
         } else if (strncmp(command, "exit", 4) == 0) {
-            char plid[7];
-            if (sscanf(command, "exit %6s", plid) == 1)
-                handle_exit(fdudp, resudp, plid);
-            else
-                printf("Usage: exit PLID\n");
+            handle_quit(fdudp, resudp, plid);
             break;
-
-        /* deboug command */
-        } else if (strncmp(command, "debug", 5) == 0) {
+        /* debug command */
+        } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
             char plid[7], key[10];
             int max_playtime;
             if (sscanf(command, "debug %6s %d %s", plid, &max_playtime, key) == 3)

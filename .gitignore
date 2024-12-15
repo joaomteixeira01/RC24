@@ -1,12 +1,16 @@
 # Code artifacts
 .vscode
+.vscode/settings.json
 
 # Binaries 
 tcp_client
 udp_client
 tcp_server
 udp_server
-command_handlers
+player
+
+# Object files
+*.o
 
 # text file
 apoio.txt
