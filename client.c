@@ -20,6 +20,7 @@
 int initialize_sockets(int* fdudp, int* fdtcp, struct addrinfo *restcp, struct addrinfo *resudp) {
     struct addrinfo hints, *res;
     int errcode;
+    
     fdtcp = socket(AF_INET, SOCK_STREAM, 0);
     if (fdtcp == -1) return -1;
 
