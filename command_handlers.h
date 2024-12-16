@@ -27,8 +27,10 @@ int handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtim
  * @param guess  The player's guess for the secret key (format: C1 C2 C3 C4)
  * @param nT     Number of trial
  * @param plid   Player ID (6-digit student number)
+ * 
+ * @return 0 if the guess was correctly received, 1 if the game has ended, -1 if error occurred
  */
-void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid);
+int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid);
 
 /**
  * Handle the "show_trials" command.

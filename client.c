@@ -57,7 +57,7 @@ int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buff
     return 0;
 }
 
-int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) { // TODO restcp not needed, remove
+int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) {
     int n;
 
     if (connect(fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) return -1;

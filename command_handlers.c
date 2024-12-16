@@ -58,7 +58,7 @@ int handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtim
     return -1;
 }
 
-void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid) { // TODO add return values for error handling!
+int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid) { // TODO add return values for error handling!
     char message[256];
     char buffer[256];
 
@@ -68,32 +68,64 @@ void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *p
     // Check the response from the Game Server
     if (send_udp(fdudp, message, resudp, buffer) == -1) {
         printf("Error: Failed to send TRY command\n");
+        return -1;
     } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {
-        int nT, nB, nW;
+        int nTn, nB, nW;
         // The response starts with "RTR OK", so the guess was correctly received
-        if (sscanf(buffer + 7, "%d %d %d", &nT, &nB, &nW) == 3) { // TODO find out where to use nT
+        if (sscanf(buffer + 7, "%d %d %d", &nTn, &nB, &nW) == 3) { 
+            if (nTn == nT - 1) send_udp(fdudp, message, resudp, buffer); // Resend (might be wrong) FIXME
             printf("Correct guesses in color and position (nB): %d\n", nB);
             printf("Correct colors in incorrect positions (nW): %d\n", nW);
+            return 0;
         } else {
             printf("Error: Failed to parse server response\n");
+            return -1;
         }
-    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) { // TODO Handle Other Responses
+    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) { 
         // If the response is "RTR NOK", the guess could not be processed
-        printf("Server response: %s\n", buffer);
+        printf("Error: Cannot submit guess (is %s in a game?)\n", plid);
+        return -1;
+    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "DUP", 3) == 0) {
+        printf("Error: Duplicate trial\n");
+        return -1;
+    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "INV", 3) == 0) {
+        printf("Error: Invalid trial (internal error)\n");
+        return -1;
+    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "ENT", 3) == 0) {
+        printf("Game Over (max trials reached)\nCorrect Answer: %s\n", buffer + 7);
+        return 1;
+    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "ETM", 3) == 0) {
+        printf("Game Over (time is up)\nCorrect Answer: %s\n", buffer + 7);
+        return 1;
+    } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "ERR", 3) == 0) {
+        printf("Error: Server error\n");
+        return -1;
     } else {
-        // Unexpected response from the server
         printf("Error: Unexpected response from the server\n");
-    }
+        return -1;
+    } 
 }
 
 void handle_show_trials(int fdtcp, struct addrinfo *restcp) { // TODO finish - output to text file, format for terminal output
     char message[] = "STR\n";
     char buffer[1024];
+    char fname[25];
+    char fsize[5];
 
     if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch trials\n");
-    } else {
-        // printf("Trials:\n%s\n", buffer);
+        return;
+    } else if (strncmp(buffer, "RST", 3) == 0 && strncmp(buffer + 4, "ACT", 3) == 0) {
+        sscanf(buffer + 8, "%s %s", fname, fsize);
+        FILE *file = fopen(fname, "w");
+        if (file == NULL) {
+            printf("Error: Could not open file %s for writing\n", fname);
+            return;
+        }
+        write(1, buffer + strlen(fname) + strlen(fsize) + 10, atoi(fsize));
+        fwrite(buffer + strlen(fname) + strlen(fsize) + 10, 1, atoi(fsize), file);
+        fclose(file);
+        printf("Trials saved to %s\n", fname);
     }
 }
 

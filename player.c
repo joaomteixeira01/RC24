@@ -95,7 +95,15 @@ int main (int argc, char** argv){
                     printf("Usage: try C1 C2 C3 C4\n");
                     continue;
                 }
-                handle_try(fdudp, resudp, guess, ++nT, plid); 
+                int ret = handle_try(fdudp, resudp, guess, ++nT, plid); 
+                if (ret == 1) {
+                    in_game = false;
+                    memset(plid, 0, sizeof(plid));
+                    nT = 0;
+                }
+                else if (ret == -1) {
+                    nT--;
+                }
             }
             else printf("Usage: try C1 C2 C3 C4\n");
                 
