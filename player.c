@@ -29,7 +29,7 @@ int main (int argc, char** argv){
     char command[256];
     // Process command-line arguments
     int opt;
-    while ((opt = getopt(argc, argv, "np")) != -1) {
+    while ((opt = getopt(argc, argv, "n:p:")) != -1) {
         switch (opt) {
             case 'n':
                 gs_ip = optarg;
