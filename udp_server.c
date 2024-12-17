@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define PORT "58001" // Porta do servidor
+#define PORT "58053" // Porta do servidor
 
 int main() {
     int fd, errcode;
@@ -63,7 +63,8 @@ int main() {
         printf("Message received: %.*s\n", (int)n, buffer);
 
         // Enviar resposta para o cliente
-        n = sendto(fd, buffer, n, 0, (struct sockaddr *)&addr, addrlen);
+        strcpy(buffer, "RTR OK 1 2 1 R Y O G\n");
+        n = sendto(fd, buffer, strlen(buffer), 0, (struct sockaddr *)&addr, addrlen);
         if (n == -1) {
             perror("sendto");
             exit(1);

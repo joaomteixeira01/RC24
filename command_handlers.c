@@ -19,43 +19,51 @@
 #include "client.h"       
 #include "command_handlers.h"
 
-void handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime) {
+int handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime) {
     char message[256];
     char buffer[256];
 
-    if (max_playtime > 600) {
-        printf("Error: max_playtime cannot exceed 600 seconds.\n");
-        return;
+    if (max_playtime > 600 || max_playtime < 1) {
+        printf("Error: Invalid max playtime\n");
+        return -1;
     }
 
-    // Format the START request message
+
+    // Format the SNG request message
     snprintf(message, sizeof(message), "SNG %s %03d\n", plid, max_playtime);
     
     if (send_udp(fdudp, message, resudp, buffer) == -1) {
         printf("Error: Failed to send start command\n");
-    } else {
-        printf("Server response: %s\n", buffer);
-    }
+        return -1;
+    } 
 
     // Check the response from the Game Server
     if (strncmp(buffer, "RSG", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {
         // The response starts with "RSG OK", so the game has started successfully
-        printf("Game started successfully!\n"); // TODO maybe remove this? idk see if it's needed
-    } else if(strncmp(buffer, "RSG", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) {
+        printf("New game started (max %d sec)\n", max_playtime);
+        return 0;
+    } 
+    if(strncmp(buffer, "RSG", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) {
         // If the response is "RSG NOK", the game could not be started
-        printf("Server response: %s\n", buffer);
-    } else {
-        // Unexpected response from the server
-        printf("Error: Unexpected response from the server\n");
+        printf("Error: Game could not be started (is the player already in a game?)\n");
+        return -1;
+    } 
+    if(strncmp(buffer, "RSG", 3) == 0 && strncmp(buffer + 4, "ERR", 3) == 0) {
+        // If the response is "RSG ERR", there is something wrong with the given parameters
+        printf("Error: Invalid Input\n");
+        return -1;
     }
+    // Unexpected response from the server
+    printf("Error: Unexpected response from the server\n");
+    return -1;
 }
 
-void handle_try(int fdudp, struct addrinfo *resudp, char *guess) {
+void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid) { // TODO add return values for error handling!
     char message[256];
     char buffer[256];
 
     // Format the TRY request message
-    snprintf(message, sizeof(message), "TRY %s\n", guess);
+    snprintf(message, sizeof(message), "TRY %s %s %d\n",plid, guess, nT);
 
     // Check the response from the Game Server
     if (send_udp(fdudp, message, resudp, buffer) == -1) {
@@ -85,7 +93,7 @@ void handle_show_trials(int fdtcp, struct addrinfo *restcp) { // TODO finish - o
     if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch trials\n");
     } else {
-        printf("Trials:\n%s\n", buffer);
+        // printf("Trials:\n%s\n", buffer);
     }
 }
 

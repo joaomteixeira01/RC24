@@ -12,8 +12,10 @@
  * @param resudp       Address info for the UDP socket
  * @param plid         Player ID (6-digit student number)
  * @param max_playtime Maximum time in seconds to complete the game (cannot exceed 600 seconds)
+ * 
+ * @return 0 if the game has started successfully, -1 otherwise
  */
-void handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime);
+int handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime);
 
 /**
  * Handle the "try" command.
@@ -23,8 +25,10 @@ void handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playti
  * @param fdudp  UDP socket file descriptor
  * @param resudp Address info for the UDP socket
  * @param guess  The player's guess for the secret key (format: C1 C2 C3 C4)
+ * @param nT     Number of trial
+ * @param plid   Player ID (6-digit student number)
  */
-void handle_try(int fdudp, struct addrinfo *resudp, char *guess);
+void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid);
 
 /**
  * Handle the "show_trials" command.

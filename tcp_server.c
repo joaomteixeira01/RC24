@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define PORT "58001" // Porta do servidor
+#define PORT "58053" // Porta do servidor
 
 int main() {
     int fd, newfd, errcode;
