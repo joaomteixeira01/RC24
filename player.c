@@ -13,7 +13,7 @@
  *   - scoreboard (or sb): Retrieves the scoreboard via TCP.
  *   - quit: Ends the current game session.
  *   - exit: Exits the client application, optionally notifying the server.
- *   - debug: Sends debugging data to the server for testing.
+ *   - debug: Starts a new game session in debug mode with a predefined secret key.
  */
 #include <stdbool.h>
 #include "client.h"
@@ -69,7 +69,7 @@ int main (int argc, char** argv){
                     continue;
                 }
                 int ret = handle_start(fdudp, resudp, plid, max_playtime);
-                if (ret == -1 && !in_game) memset(plid, 0, sizeof(plid));
+                if (ret == -1 && !in_game) memset(plid, 0, sizeof(plid)); // TODO all this might be unnecessary
                 else if (ret == 0) in_game = true;
                     
             }
@@ -125,9 +125,16 @@ int main (int argc, char** argv){
         /* debug command */
         } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
             char plid[7], key[10];
-            int max_playtime;
-            if (sscanf(command, "debug %6s %d %s", plid, &max_playtime, key) == 3)
-                handle_debug(fdudp, resudp, plid, max_playtime, key);
+            int max_playtime, ret;
+            if (sscanf(command, "debug %6s %d %[^\n]s", plid, &max_playtime, key) == 3){
+                if (strlen(plid) != 6) {
+                    printf("Error: Invalid PLID\n");
+                    continue;
+                }
+                ret = handle_debug(fdudp, resudp, plid, max_playtime, key);
+                if (ret == -1 && !in_game) memset(plid, 0, sizeof(plid));
+                else if (ret == 0) in_game = true;
+            }
             else
                 printf("Usage: debug PLID max_playtime C1 C2 C3 C4\n");
         } else {

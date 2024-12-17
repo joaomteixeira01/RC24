@@ -8,6 +8,7 @@ udp_client
 tcp_server
 udp_server
 player
+a.out
 
 # Object files
 *.o

@@ -46,24 +46,44 @@ int initialize_sockets(int* fdtcp, int* fdudp, struct addrinfo **restcp, struct 
 // TODO maybe (probably) implement select for timeouts
 
 int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buffer) {
-    int n;
+    int n, ct = 0;
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fdudp, &fds);
+    struct timeval tv;
 
-    n = sendto(fdudp, message, strlen(message), 0, resudp->ai_addr, resudp->ai_addrlen);
-    if (n == -1) return -1;
+    while (ct == 0){
+        n = sendto(fdudp, message, strlen(message), 0, resudp->ai_addr, resudp->ai_addrlen);
+        if (n == -1) return -1;
+
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        ct = select(fdudp + 1, &fds, NULL, NULL, &tv);
+    }
 
     n = recvfrom(fdudp, buffer, 256*sizeof(char), 0, NULL, NULL);
     if (n == -1) return -1;
-
     return 0;
 }
 
 int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) {
-    int n;
+    int n, ct = 0;
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fdtcp, &fds);
+    struct timeval tv;
 
     if (connect(fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) return -1;
+    while (ct == 0){
+        n = write(fdtcp, message, strlen(message) + 1);
+        if (n == -1) return -1;
 
-    n = write(fdtcp, message, strlen(message) + 1);
-    if (n == -1) return -1;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        ct = select(fdtcp + 1, &fds, NULL, NULL, &tv);
+    }
 
     n = read(fdtcp, buffer, 256*sizeof(char));
     if (n == -1) return -1;

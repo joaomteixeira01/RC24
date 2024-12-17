@@ -115,7 +115,12 @@ void handle_show_trials(int fdtcp, struct addrinfo *restcp) { // TODO finish - o
     if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch trials\n");
         return;
-    } else if (strncmp(buffer, "RST", 3) == 0 && strncmp(buffer + 4, "ACT", 3) == 0) {
+    } else if (strncmp(buffer, "RST", 3) == 0 && (strncmp(buffer + 4, "ACT", 3) == 0 || strncmp(buffer + 4, "FIN", 3) == 0)) {
+        if (strncmp(buffer + 4, "ACT", 3) == 0) {
+            printf("Current game:\n");
+        } else {
+            printf("Last game:\n");
+        }
         sscanf(buffer + 8, "%s %s", fname, fsize);
         FILE *file = fopen(fname, "w");
         if (file == NULL) {
@@ -126,18 +131,42 @@ void handle_show_trials(int fdtcp, struct addrinfo *restcp) { // TODO finish - o
         fwrite(buffer + strlen(fname) + strlen(fsize) + 10, 1, atoi(fsize), file);
         fclose(file);
         printf("Trials saved to %s\n", fname);
+    } else if (strncmp(buffer, "RST", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) {
+        printf("Error: No game history\n");
+    } else if (strncmp(buffer, "RST", 3) == 0 && strncmp(buffer + 4, "ERR", 3) == 0) {
+        printf("Error: Server error\n");
+    } else {
+        printf("Error: Unexpected response from the server\n");
     }
 }
 
 void handle_scoreboard(int fdtcp, struct addrinfo *restcp) { // TODO finish - idek figure it out later
     char message[] = "SSB\n";
-    char buffer[1024];
+    char buffer[4096];
+    char fname[25];
+    char fsize[5];
 
     if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch scoreboard\n");
+        return;
+    } else if (strncmp(buffer, "RSS", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {
+        sscanf(buffer + 7, "%s %s", fname, fsize);
+        FILE *file = fopen(fname, "w");
+        if (file == NULL) {
+            printf("Error: Could not open file %s for writing\n", fname);
+            return;
+        }
+        write(1, buffer + strlen(fname) + strlen(fsize) + 10, atoi(fsize));
+        fwrite(buffer + strlen(fname) + strlen(fsize) + 10, 1, atoi(fsize), file);
+        fclose(file);
+        printf("Scoreboard saved to %s\n", fname);
+
+    } else if (strncmp(buffer, "RSS", 3) == 0 && strncmp(buffer + 4, "EMPTY", 3) == 0) {
+        printf("Error: No scoreboard available\n");
     } else {
-        printf("Scoreboard:\n%s\n", buffer);
+        printf("Error: Unexpected response from the server\n");
     }
+    
 }
 
 void handle_quit(int fdudp, struct addrinfo *resudp, char *plid) {
@@ -161,6 +190,44 @@ void handle_quit(int fdudp, struct addrinfo *resudp, char *plid) {
 
 }
 
-void handle_debug(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime, char *key) {
-    //Implementar
+int handle_debug(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime, char *key) {
+    char message[256];
+    char buffer[256];
+
+    if (max_playtime > 600 || max_playtime < 1) {
+        printf("Error: Invalid max playtime\n");
+        return -1;
+    }
+
+
+    // Format the DBG request message
+    snprintf(message, sizeof(message), "DBG %s %03d %s\n", plid, max_playtime, key);
+
+    if (send_udp(fdudp, message, resudp, buffer) == -1) {
+        printf("Error: Failed to send debug command\n");
+        return -1;
+    }
+
+    // Check the response from the Game Server
+    if (strncmp(buffer, "RDB", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {
+        // The response starts with "RDG OK", so the game has started successfully
+        printf("New game started in debug mode (max %d sec)\n", max_playtime);
+        return 0;
+    }
+
+    if (strncmp(buffer, "RDB", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) {
+        // If the response is "RDG NOK", the game could not be started
+        printf("Error: Game could not be started (is the player already in a game?)\n");
+        return -1;
+    }
+
+    if (strncmp(buffer, "RDB", 3) == 0 && strncmp(buffer + 4, "ERR", 3) == 0) {
+        // If the response is "RDG ERR", there is something wrong with the given parameters
+        printf("Error: Invalid Input\n");
+        return -1;
+    }
+
+    // Unexpected response from the server
+    printf("Error: Unexpected response from the server\n");
+    return -1;
 }

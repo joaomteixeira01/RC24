@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wno-unused-parameter -Wno-maybe-uninitialized -g
+CFLAGS = -Wall -Wextra -Werror -g
 SOURCES = client.c command_handlers.c player.c
 OBJECTS = $(SOURCES:.c=.o)
 TARGET = player
