@@ -61,13 +61,14 @@ int handle_start(int fdudp, struct addrinfo *resudp, char *plid, int max_playtim
 void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *plid) { // TODO add return values for error handling!
     char message[256];
     char buffer[256];
-
+    
     // Format the TRY request message
     snprintf(message, sizeof(message), "TRY %s %s %d\n",plid, guess, nT);
 
     // Check the response from the Game Server
     if (send_udp(fdudp, message, resudp, buffer) == -1) {
         printf("Error: Failed to send TRY command\n");
+
     } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {
         int nT, nB, nW;
         // The response starts with "RTR OK", so the guess was correctly received
@@ -77,9 +78,11 @@ void handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *p
         } else {
             printf("Error: Failed to parse server response\n");
         }
+
     } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "NOK", 3) == 0) { // TODO Handle Other Responses
         // If the response is "RTR NOK", the guess could not be processed
         printf("Server response: %s\n", buffer);
+
     } else {
         // Unexpected response from the server
         printf("Error: Unexpected response from the server\n");
