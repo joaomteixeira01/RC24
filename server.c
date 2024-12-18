@@ -187,7 +187,10 @@ void format_secret_key(const char *secret_key, char *formatted_key) {
 int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW, char *secret_key) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
-            
+
+            int color_counts[6] = {0};
+            const char colors[] = "RGBYOP";
+
             // Check elapsed time
             time_t current_time = time(NULL);
             if (difftime(current_time, active_games[i].start_time) > active_games[i].max_playtime) {
@@ -196,7 +199,24 @@ int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW,
                 return -5; // Time exceeded
             }
 
+            // Validate PLID
+            if (strlen(plid) != 6 || strspn(plid, "0123456789") != 6) {
+                return -1; // ERR: Invalid PLID
+            }
+
+            // Validate the color codes in the guess
+            for (int i = 0; i < 4; i++) {
+                if (!strchr(colors, guess[i])) {
+                    return -1; // ERR: Invalid color code
+                }
+            }
+
             *nB = *nW = 0;
+
+            /**
+             *  TODO: 
+             *      - Resend scenario
+            */
 
             if (nT != active_games[i].trials + 1) {
                 if (nT == active_games[i].trials &&
@@ -211,9 +231,6 @@ int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW,
                     return -3; // DUP: Duplicate guess
                 }
             }
-
-            int color_counts[6] = {0};
-            const char colors[] = "RGBYOP";
 
             for (int j = 0; j < 4; j++) {
                 if (guess[j] == active_games[i].secret_key[j]) {
@@ -249,7 +266,7 @@ int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW,
                 return 1; // Game won
             }
 
-            if (active_games[i].trials >= 8) {
+            if (active_games[i].trials > MAX_ATTEMPTS) {
                 active_games[i].active = 0;
                 format_secret_key(active_games[i].secret_key, secret_key);
                 return 2; // Game over: Maximum attempts reached
@@ -279,6 +296,7 @@ void quit_game(const char *plid, char *response) {
 void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t client_len, char *buffer) {
     char response[BUFFER_SIZE];
     memset(response, 0, BUFFER_SIZE);
+    char secret_key[5] = {0};
 
     // Parse and handle the message based on the command type
     if (strncmp(buffer, "SNG", 3) == 0) {   // Start New Game
@@ -300,8 +318,6 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
     } else if (strncmp(buffer, "TRY", 3) == 0) {    // Process Guess
         char plid[7], c1, c2, c3, c4;
         int nB, nW, nT;
-        char secret_key[5] = {0};
-        char formatted_key[10];
 
         if (sscanf(buffer, "TRY %6s %c %c %c %c %d", plid, &c1, &c2, &c3, &c4, &nT) == 6) {
             // Ensure the format is valid (check spaces and colors)
@@ -348,6 +364,8 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
                         snprintf(response, sizeof(response), "RTR ETM %s\n", secret_key); 
                         break; 
 
+                    case -6: // ENT: Max attempts reached
+
                     default:
                         snprintf(response, sizeof(response), "RTR ERR\n");
                         break;
@@ -361,7 +379,13 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
     } else if (strncmp(buffer, "QUT", 3) == 0) {    // Quit Game
         char plid[7];
 
+        /**
+         * TODO:
+         *  - If PLID did not have an ongoing game, the GS replies with status = NOK
+         */
+
         if (sscanf(buffer, "QUT %6s", plid) == 1) {
+            snprintf(response, sizeof(response), "RQT OK %s\n", secret_key); 
             quit_game(plid, response);  // Process quit request
 
         } else {

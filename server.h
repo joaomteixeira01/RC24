@@ -12,6 +12,7 @@
 #define TCP_PORT 58002 
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 256
+#define MAX_ATTEMPTS 8
 
 // Structs
 typedef struct {
@@ -36,4 +37,10 @@ void generate_secret_key(char *secret_key);
 int start_new_game(const char *plid, int max_playtime, char *secret_key);
 int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW, char *response_buffer);
 void quit_game(const char *plid, char *response);
-void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t cl
+void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t client_len, char *buffer);
+void handle_tcp_connection(int client_socket);
+void get_trials(const char *plid, char *buffer);
+void get_scoreboard(char *buffer);
+
+
+#endif
