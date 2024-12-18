@@ -167,6 +167,7 @@ int start_new_game(const char *plid, int max_playtime, char *secret_key) {
             active_games[i].max_playtime = max_playtime;
             active_games[i].trials = 0;
             active_games[i].active = 1;
+            active_games[i].start_time = time(NULL); // Record the start time
             generate_secret_key(active_games[i].secret_key);
             strcpy(secret_key, active_games[i].secret_key);
             return 1;
@@ -175,52 +176,49 @@ int start_new_game(const char *plid, int max_playtime, char *secret_key) {
     return 0; // No available slots
 }
 
+// Utility function to format the secret_key with spaces between each character
+void format_secret_key(const char *secret_key, char *formatted_key) {
+    snprintf(formatted_key, 10, "%c %c %c %c", secret_key[0], secret_key[1], secret_key[2], secret_key[3]);
+    formatted_key[7] = '\0'; // Null-terminate to avoid garbage data
+}
+
+
 // Process a player's guess and update the game state
-int process_guess(const char *plid, const char *guess, int *nB, int *nW) {
+int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW, char *secret_key) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        // Step 1: Find the active game for the given PLID
         if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
-            *nB = *nW = 0; // Initialize black (correct position) and white (wrong position) counters
-
-            char c1, c2, c3, c4;         // Variables to hold individual colors from the guess
-            char compact_guess[5] = {0}; // String to store the guess without spaces
-
-            // Step 2: Validate format - ensure guess has 4 colors separated by spaces
-            if (sscanf(guess, "%c %c %c %c", &c1, &c2, &c3, &c4) != 4) {
-                return 5; // Return INV (Invalid Guess) if the format is incorrect
-            }
-
-            // Step 3: Compact the guess into a single string for easier processing
-            compact_guess[0] = c1;
-            compact_guess[1] = c2;
-            compact_guess[2] = c3;
-            compact_guess[3] = c4;
-            compact_guess[4] = '\0'; // Null-terminate the string
             
-            // Step 4: Validate that each color in the guess is valid
-            for (int j = 0; j < 4; j++) {
-                if (!strchr("RGBYOP", compact_guess[j])) { // Check if the color exists in valid colors
-                    return 5; // Return INV (Invalid Guess) if an invalid color is found
-                }
+            // Check elapsed time
+            time_t current_time = time(NULL);
+            if (difftime(current_time, active_games[i].start_time) > active_games[i].max_playtime) {
+                active_games[i].active = 0; // End the game
+                format_secret_key(active_games[i].secret_key, secret_key);
+                return -5; // Time exceeded
             }
 
-            // Step 5: Check for duplicate guess in the game's history
+            *nB = *nW = 0;
+
+            if (nT != active_games[i].trials + 1) {
+                if (nT == active_games[i].trials &&
+                    strcmp(active_games[i].guesses[active_games[i].trials - 1], guess) == 0) {
+                    return 0; // OK: Resending the last valid guess
+                }
+                return -2; // INV: Invalid trial number
+            }
+
             for (int j = 0; j < active_games[i].trials; j++) {
-                if (strcmp(active_games[i].guesses[j], compact_guess) == 0) {
-                    return 4; // Return DUP (Duplicate Guess) if the guess was already made
+                if (strcmp(active_games[i].guesses[j], guess) == 0) {
+                    return -3; // DUP: Duplicate guess
                 }
             }
 
-            // Step 6: Count black (nB) and white (nW) matches
-            int color_counts[6] = {0};       // Array to count occurrences of colors in the secret key
-            const char colors[] = "RGBYOP";  // Array of valid colors
+            int color_counts[6] = {0};
+            const char colors[] = "RGBYOP";
 
-            // First pass: Calculate black pegs (correct color and position) and count remaining colors
             for (int j = 0; j < 4; j++) {
-                if (compact_guess[j] == active_games[i].secret_key[j]) {
-                    (*nB)++; // Increment black counter for correct position
+                if (guess[j] == active_games[i].secret_key[j]) {
+                    (*nB)++;
                 } else {
-                    // Count occurrences of colors that are not exact matches
                     for (int k = 0; k < 6; k++) {
                         if (active_games[i].secret_key[j] == colors[k]) {
                             color_counts[k]++;
@@ -230,40 +228,38 @@ int process_guess(const char *plid, const char *guess, int *nB, int *nW) {
                 }
             }
 
-            // Second pass: Calculate white pegs (correct color, wrong position)
             for (int j = 0; j < 4; j++) {
-                if (compact_guess[j] != active_games[i].secret_key[j]) { // Exclude blacks
+                if (guess[j] != active_games[i].secret_key[j]) {
                     for (int k = 0; k < 6; k++) {
-                        if (compact_guess[j] == colors[k] && color_counts[k] > 0) {
-                            (*nW)++;      // Increment white counter
-                            color_counts[k]--; // Decrease the count of that color
+                        if (guess[j] == colors[k] && color_counts[k] > 0) {
+                            (*nW)++;
+                            color_counts[k]--;
                             break;
                         }
                     }
                 }
             }
 
-            // Step 7: Store the guess in the game's history
-            strncpy(active_games[i].guesses[active_games[i].trials], compact_guess, 4);
-            active_games[i].guesses[active_games[i].trials][4] = '\0'; // Null-terminate the guess
-            active_games[i].trials++; // Increment the number of trials
+            strncpy(active_games[i].guesses[active_games[i].trials], guess, 4);
+            active_games[i].guesses[active_games[i].trials][4] = '\0';
+            active_games[i].trials++;
 
-            // Step 8: Check game-over conditions
             if (*nB == 4) {
-                active_games[i].active = 0; // End the game if all pegs are black
-                return 2; // Return ENT (Game Over - Correct Guess)
+                active_games[i].active = 0;
+                return 1; // Game won
             }
 
             if (active_games[i].trials >= 8) {
-                active_games[i].active = 0; // End the game if the max number of trials is reached
-                return 3; // Return ENT (Game Over - Max Trials Reached)
+                active_games[i].active = 0;
+                format_secret_key(active_games[i].secret_key, secret_key);
+                return 2; // Game over: Maximum attempts reached
             }
 
-            return 1; // Return OK (Guess processed successfully)
+            return 0; // OK: Valid guess
         }
     }
 
-    return 0; // Return NOK (No active game found for this player)
+    return -4; // NOK: No active game found
 }
 
 
@@ -281,7 +277,6 @@ void quit_game(const char *plid, char *response) {
 
 // Handle incoming UDP messages
 void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t client_len, char *buffer) {
-    printf("Received message: %s", buffer);  // Log the received message
     char response[BUFFER_SIZE];
     memset(response, 0, BUFFER_SIZE);
 
@@ -303,39 +298,64 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
         }
 
     } else if (strncmp(buffer, "TRY", 3) == 0) {    // Process Guess
-        char plid[7], guess[10];
-        int nB, nW; 
+        char plid[7], c1, c2, c3, c4;
+        int nB, nW, nT;
+        char secret_key[5] = {0};
+        char formatted_key[10];
 
-        if (sscanf(buffer, "TRY %6s %s", plid, guess) == 2) {
-            printf("%s\n", guess);
-            int result = process_guess(plid, guess, &nB, &nW);
-
-            if (result == 1) { 
-                // Trial processed successfully
-                snprintf(response, sizeof(response), "RTR OK %d %d\n", nB, nW);
-
-            } else if (result == 2) {
-                // Correct guess
-                // TODO
-
-            } else if (result == 3) { 
-                // Game over: Maximum trials reached
-                snprintf(response, sizeof(response), "RTR ENT\n");
-
-            } else if (result == 4) {
-                // Duplicate guess
-                snprintf(response, sizeof(response), "RTR DUP\n");
-
-            } else if (result == 5) {
-                // Invalid guess
+        if (sscanf(buffer, "TRY %6s %c %c %c %c %d", plid, &c1, &c2, &c3, &c4, &nT) == 6) {
+            // Ensure the format is valid (check spaces and colors)
+            if (buffer[10] != ' ' || buffer[12] != ' ' || buffer[14] != ' ' || buffer[16] != ' ' || buffer[18] != ' ') {
+                snprintf(response, sizeof(response), "RTR INV\n"); // Invalid format
+            } else if (!strchr("RGBYOP", c1) || !strchr("RGBYOP", c2) || !strchr("RGBYOP", c3) || !strchr("RGBYOP", c4)) {
                 snprintf(response, sizeof(response), "RTR INV\n");
-
             } else {
-                // Guess could not be processed
-                snprintf(response, sizeof(response), "RTR NOK\n");
+                // Compact the guess into a single string
+                char guess[5] = {c1, c2, c3, c4, '\0'};
+
+                int result = process_guess(plid, guess, nT, &nB, &nW, secret_key);
+
+                switch (result) {
+                    case 0: // OK: Valid guess
+                        snprintf(response, sizeof(response), "RTR OK %d %d %d\n", nT, nB, nW);
+                        break;
+
+                    case 1: // Game won
+                        snprintf(response, sizeof(response), "RTR OK %d %d %d\n", nT, nB, nW);
+                        break;
+
+                    case 2: // Game over: Maximum attempts reached
+                        snprintf(response, sizeof(response), "RTR ENT %s\n", secret_key);
+                        break;
+
+                    case -1: // ERR: Invalid guess
+                        snprintf(response, sizeof(response), "RTR ERR\n");
+                        break;
+
+                    case -2: // INV: Invalid trial number
+                        snprintf(response, sizeof(response), "RTR INV\n");
+                        break;
+
+                    case -3: // DUP: Duplicate guess
+                        snprintf(response, sizeof(response), "RTR DUP\n");
+                        break;
+
+                    case -4: // NOK: No active game found
+                        snprintf(response, sizeof(response), "RTR NOK\n");
+                        break;
+                    
+                    case -5: // ETM: Time exceeded
+                        snprintf(response, sizeof(response), "RTR ETM %s\n", secret_key); 
+                        break; 
+
+                    default:
+                        snprintf(response, sizeof(response), "RTR ERR\n");
+                        break;
+                }
             }
         } else {
-            snprintf(response, sizeof(response), "RTR ERR\n");  // Invalid syntax
+            // Invalid syntax
+            snprintf(response, sizeof(response), "RTR ERR\n");
         }
 
     } else if (strncmp(buffer, "QUT", 3) == 0) {    // Quit Game

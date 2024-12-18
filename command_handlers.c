@@ -71,10 +71,10 @@ int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *pl
         return -1;
 
     } else if (strncmp(buffer, "RTR", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {
-        int nTn, nB, nW;
+        int nTn, nB, nW, nT;
 
         // The response starts with "RTR OK", so the guess was correctly received
-        if (sscanf(buffer + 7, " %d %d", &nB, &nW) == 2) { 
+        if (sscanf(buffer + 7, " %d %d %d", &nT, &nB, &nW) == 2) { 
             if (nTn == nT - 1) send_udp(fdudp, message, resudp, buffer); // Resend (might be wrong) FIXME
             printf("Correct guesses in color and position (nB): %d\n", nB);
             printf("Correct colors in incorrect positions (nW): %d\n", nW);

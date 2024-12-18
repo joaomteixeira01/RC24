@@ -21,6 +21,7 @@ typedef struct {
     int trials;            // Number of trials made
     int active;            // Active game flag (1: active, 0: inactive)
     char guesses[8][5];    // Histórico de até 8 tentativas (4 cores + '\0')
+    time_t start_time;     // Start time of the game
 } Game;
 
 typedef struct {
@@ -33,11 +34,6 @@ typedef struct {
 void initialize_games();
 void generate_secret_key(char *secret_key);
 int start_new_game(const char *plid, int max_playtime, char *secret_key);
-int process_guess(const char *plid, const char *guess, int *nB, int *nW);
+int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW, char *response_buffer);
 void quit_game(const char *plid, char *response);
-void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t client_len, char *buffer);
-void handle_tcp_connection(int client_socket);
-void get_trials(const char *plid, char *buffer);
-void get_scoreboard(char *buffer);
-
-#endif
+void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t cl
