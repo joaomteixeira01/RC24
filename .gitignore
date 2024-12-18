@@ -8,6 +8,8 @@ udp_client
 tcp_server
 udp_server
 player
+server
+command_handlers
 
 # Object files
 *.o
@@ -18,3 +20,4 @@ apoio.txt
 # MacOS artifacts
 .DS_Store
 
+tests

@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include "client.h"
 #include "command_handlers.h"
+#include "player.h"
 
 int main (int argc, char** argv){
     char *gs_ip = NULL;
@@ -27,6 +28,7 @@ int main (int argc, char** argv){
     int fdudp, fdtcp, nT = 0;
     struct addrinfo *resudp, *restcp;
     char command[256];
+
     // Process command-line arguments
     int opt;
     while ((opt = getopt(argc, argv, "n:p:")) != -1) {
@@ -82,20 +84,37 @@ int main (int argc, char** argv){
         /* try command */
         } else if (strncmp(command, "try", 3) == 0) {
             char guess[10];
+
             if (sscanf(command, "try %[^\n]s", guess) == 1) {
                 char colors[4];
+                int valid_colors = 1;   // Control variable to track if all colors are valide
+
+                // Parse the 4 colors from the user's guess
                 if (sscanf(guess, "%c %c %c %c", &colors[0], &colors[1], &colors[2], &colors[3]) == 4){
                     for (int i = 0; i < 4; i++){
                         if (colors[i] != 'R' && colors[i] != 'G' && colors[i] != 'B' && colors[i] != 'Y' && colors[i] != 'O' && colors[i] != 'P') {
                             printf("Error: Invalid colors\n");
-                            continue;
+                            valid_colors = 0; // Mark as invalid
+                            break;
                         }
                     }
                 } else {
                     printf("Usage: try C1 C2 C3 C4\n");
                     continue;
                 }
-                handle_try(fdudp, resudp, guess, ++nT, plid); 
+                // Continue only if all the colors are valid
+                if (valid_colors) {
+                    int ret = handle_try(fdudp, resudp, guess, ++nT, plid); 
+
+                    if (ret == 1) { // End game
+                        in_game = false;
+                        memset(plid, 0, sizeof(plid));
+                        nT = 0;
+                    }
+                    else if (ret == -1) {
+                        nT--;
+                    }
+                }
             }
             else printf("Usage: try C1 C2 C3 C4\n");
                 

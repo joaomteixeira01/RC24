@@ -20,6 +20,7 @@ typedef struct {
     int max_playtime;      // Maximum playtime in seconds
     int trials;            // Number of trials made
     int active;            // Active game flag (1: active, 0: inactive)
+    char guesses[8][5];    // Histórico de até 8 tentativas (4 cores + '\0')
 } Game;
 
 typedef struct {

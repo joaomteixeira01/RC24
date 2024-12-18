@@ -46,7 +46,7 @@ int initialize_sockets(int* fdtcp, int* fdudp, struct addrinfo **restcp, struct 
 // TODO maybe (probably) implement select for timeouts
 
 int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buffer) {
-    printf("Sending message to server: %sOn port: %d\n", message, ntohs(((struct sockaddr_in*)resudp->ai_addr)->sin_port));  // Log the message being sent
+    printf("Sending message to server: %s\n", message);  // Log the message being sent
     int n;
 
     n = sendto(fdudp, message, strlen(message), 0, resudp->ai_addr, resudp->ai_addrlen);
@@ -61,7 +61,7 @@ int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buff
     return 0;
 }
 
-int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) { // TODO restcp not needed, remove
+int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) {
     int n;
 
     if (connect(fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) return -1;
