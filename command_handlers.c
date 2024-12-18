@@ -115,11 +115,13 @@ int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *pl
     } 
 }
 
-void handle_show_trials(int fdtcp, struct addrinfo *restcp) { // TODO finish - output to text file, format for terminal output
-    char message[] = "STR\n";
+void handle_show_trials(int fdtcp, struct addrinfo *restcp, char* plid) { // TODO finish - output to text file, format for terminal output
+    char message[256];
     char buffer[1024];
     char fname[25];
     char fsize[5];
+
+    snprintf(message, sizeof(message), "STR %s\n", plid);
 
     if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch trials\n");

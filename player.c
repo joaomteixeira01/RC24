@@ -71,8 +71,7 @@ int main (int argc, char** argv){
                     continue;
                 }
                 int ret = handle_start(fdudp, resudp, plid, max_playtime);
-                if (ret == -1 && !in_game) memset(plid, 0, sizeof(plid)); // TODO all this might be unnecessary
-                else if (ret == 0) in_game = true;
+                if (ret == 0) in_game = true;
                     
             }
             else{
@@ -108,7 +107,6 @@ int main (int argc, char** argv){
 
                     if (ret == 1) { // End game
                         in_game = false;
-                        memset(plid, 0, sizeof(plid));
                         nT = 0;
                     }
                     else if (ret == -1) {
@@ -120,7 +118,7 @@ int main (int argc, char** argv){
                 
         /* show_trials command */
         } else if (strncmp(command, "show_trials", 11) == 0 || strncmp(command, "st", 2) == 0) { 
-            handle_show_trials(fdtcp, restcp);
+            handle_show_trials(fdtcp, restcp, plid);
 
         /* scoreboard command */
         } else if (strncmp(command, "scoreboard", 10) == 0 || strncmp(command, "sb", 2) == 0) {
@@ -128,13 +126,18 @@ int main (int argc, char** argv){
 
         /* quit command */
         } else if (strncmp(command, "quit", 4) == 0) {
+            if (!in_game) {
+                printf("Error: Not in a game\n");
+                continue;
+            }
             handle_quit(fdudp, resudp, plid);
         /* exit command */
         } else if (strncmp(command, "exit", 4) == 0) {
-            handle_quit(fdudp, resudp, plid);
+            if (in_game)
+                handle_quit(fdudp, resudp, plid);
             break;
         /* debug command */
-        } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
+        } else if (strncmp(command, "debug", 5) == 0) {
             char plid[7], key[10];
             int max_playtime, ret;
             if (sscanf(command, "debug %6s %d %[^\n]s", plid, &max_playtime, key) == 3){
