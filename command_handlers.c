@@ -161,7 +161,7 @@ void handle_scoreboard(int fdtcp, struct addrinfo *restcp) { // TODO finish - id
         fclose(file);
         printf("Scoreboard saved to %s\n", fname);
 
-    } else if (strncmp(buffer, "RSS", 3) == 0 && strncmp(buffer + 4, "EMPTY", 3) == 0) {
+    } else if (strncmp(buffer, "RSS", 3) == 0 && strncmp(buffer + 4, "EMPTY", 5) == 0) {
         printf("Error: No scoreboard available\n");
     } else {
         printf("Error: Unexpected response from the server\n");
