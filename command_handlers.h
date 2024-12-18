@@ -82,6 +82,6 @@ void handle_exit(int fdudp, struct addrinfo *resudp, char *plid);
  * @param max_playtime Maximum time in seconds to complete the game (cannot exceed 600 seconds)
  * @param key          Predefined secret key for the debug mode (format: C1 C2 C3 C4)
  */
-void handle_debug(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime, char *key);
+int handle_debug(int fdudp, struct addrinfo *resudp, char *plid, int max_playtime, char *key);
 
 #endif 
