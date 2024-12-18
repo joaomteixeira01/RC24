@@ -13,7 +13,7 @@
  *   - scoreboard (or sb): Retrieves the scoreboard via TCP.
  *   - quit: Ends the current game session.
  *   - exit: Exits the client application, optionally notifying the server.
- *   - debug: Sends debugging data to the server for testing.
+ *   - debug: Starts a new game session in debug mode with a predefined secret key.
  */
 #include <stdbool.h>
 #include "client.h"
@@ -71,8 +71,7 @@ int main (int argc, char** argv){
                     continue;
                 }
                 int ret = handle_start(fdudp, resudp, plid, max_playtime);
-                if (ret == -1 && !in_game) memset(plid, 0, sizeof(plid));
-                else if (ret == 0) in_game = true;
+                if (ret == 0) in_game = true;
                     
             }
             else{
@@ -93,10 +92,9 @@ int main (int argc, char** argv){
                 if (sscanf(guess, "%c %c %c %c", &colors[0], &colors[1], &colors[2], &colors[3]) == 4){
                     for (int i = 0; i < 4; i++){
                         if (colors[i] != 'R' && colors[i] != 'G' && colors[i] != 'B' && colors[i] != 'Y' && colors[i] != 'O' && colors[i] != 'P') {
-                            //printf("Error: Invalid colors\n");
-                            //valid_colors = 0; // Mark as invalid
-                            //break;
-                            continue;
+                            printf("Error: Invalid colors\n");
+                            valid_colors = 0; // Mark as invalid
+                            break;
                         }
                     }
                 } else {
@@ -109,7 +107,6 @@ int main (int argc, char** argv){
 
                     if (ret == 1) { // End game
                         in_game = false;
-                        memset(plid, 0, sizeof(plid));
                         nT = 0;
                     }
                     else if (ret == -1) {
@@ -129,17 +126,28 @@ int main (int argc, char** argv){
 
         /* quit command */
         } else if (strncmp(command, "quit", 4) == 0) {
+            if (!in_game) {
+                printf("Error: Not in a game\n");
+                continue;
+            }
             handle_quit(fdudp, resudp, plid);
         /* exit command */
         } else if (strncmp(command, "exit", 4) == 0) {
-            handle_quit(fdudp, resudp, plid);
+            if (in_game)
+                handle_quit(fdudp, resudp, plid);
             break;
         /* debug command */
-        } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
+        } else if (strncmp(command, "debug", 5) == 0) {
             char plid[7], key[10];
-            int max_playtime;
-            if (sscanf(command, "debug %6s %d %s", plid, &max_playtime, key) == 3)
-                handle_debug(fdudp, resudp, plid, max_playtime, key);
+            int max_playtime, ret;
+            if (sscanf(command, "debug %6s %d %[^\n]s", plid, &max_playtime, key) == 3){
+                if (strlen(plid) != 6) {
+                    printf("Error: Invalid PLID\n");
+                    continue;
+                }
+                ret = handle_debug(fdudp, resudp, plid, max_playtime, key);
+                if (ret == 0) in_game = true;
+            }
             else
                 printf("Usage: debug PLID max_playtime C1 C2 C3 C4\n");
         } else {
