@@ -40,7 +40,7 @@ int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *pl
  * @param fdtcp  TCP socket file descriptor
  * @param restcp Address info for the TCP socket
  */
-void handle_show_trials(int fdtcp, struct addrinfo *restcp);
+void handle_show_trials(int fdtcp, struct addrinfo *restcp, char *plid);
 
 /**
  * Handle the "scoreboard" command.
