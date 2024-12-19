@@ -89,7 +89,7 @@ int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buff
 
         ct = select(fdtcp + 1, &fds, NULL, NULL, &tv);
     }
-
+    sleep(1);
     n = read(fdtcp, buffer, 256*sizeof(char));
     if (n == -1) return -1;
 

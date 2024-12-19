@@ -77,7 +77,7 @@ int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *pl
         if (sscanf(buffer + 7, "%d %d %d", &nTn, &nB, &nW) == 3) { 
             if (nB == 4) {
                 printf("Game Won!!\n");
-                return 0;
+                return 1;
             } 
             if (nTn == nT - 1) send_udp(fdudp, message, resudp, buffer); // Resend (might be wrong) FIXME
             printf("Correct guesses in color and position (nB): %d\n", nB);
