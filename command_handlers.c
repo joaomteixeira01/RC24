@@ -121,13 +121,13 @@ int handle_try(int fdudp, struct addrinfo *resudp, char *guess, int nT, char *pl
 
 void handle_show_trials(int fdtcp, struct addrinfo *restcp, char* plid) { // TODO finish - output to text file, format for terminal output
     char message[256];
-    char buffer[1024];
+    char buffer[4096];
     char fname[25];
     char fsize[5];
 
     snprintf(message, sizeof(message), "STR %s\n", plid);
 
-    if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
+    if (send_tcp(&fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch trials\n");
         return;
     } else if (strncmp(buffer, "RST", 3) == 0 && (strncmp(buffer + 4, "ACT", 3) == 0 || strncmp(buffer + 4, "FIN", 3) == 0)) {
@@ -161,7 +161,7 @@ void handle_scoreboard(int fdtcp, struct addrinfo *restcp) { // TODO finish - id
     char fname[25];
     char fsize[5];
 
-    if (send_tcp(fdtcp, message, restcp, buffer) == -1) {
+    if (send_tcp(&fdtcp, message, restcp, buffer) == -1) {
         printf("Error: Failed to fetch scoreboard\n");
         return;
     } else if (strncmp(buffer, "RSS", 3) == 0 && strncmp(buffer + 4, "OK", 2) == 0) {

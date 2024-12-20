@@ -47,13 +47,14 @@ int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buff
     printf("Sending message to server: %s\n", message);  // Log the message being sent
     int n, ct = 0;
     fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fdudp, &fds);
     struct timeval tv;
 
     while (ct == 0){
         n = sendto(fdudp, message, strlen(message), 0, resudp->ai_addr, resudp->ai_addrlen);
         if (n == -1) return -1;
+
+        FD_ZERO(&fds);
+        FD_SET(fdudp, &fds);
 
         tv.tv_sec = 1;
         tv.tv_usec = 0;
@@ -70,28 +71,43 @@ int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buff
     return 0;
 }
 
-int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buffer) {
+int send_tcp(int *fdtcp, const char* message, struct addrinfo *restcp, char *buffer) {
     int n, ct = 0;
     fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fdtcp, &fds);
     struct timeval tv;
+    size_t total_read = 0;
+    size_t buffer_size = 4096;
 
-    if (connect(fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) return -1;
-    while (ct == 0){
-        n = write(fdtcp, message, strlen(message) + 1);
-        if (n == -1) return -1;
+    if (connect(*fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) {
+        return -1;
+    }
+
+    while (ct == 0) {
+        n = write(*fdtcp, message, strlen(message) + 1);
+        if (n == -1) {
+            return -1;
+        }
+        FD_ZERO(&fds);
+        FD_SET(*fdtcp, &fds);
 
         tv.tv_sec = 1;
         tv.tv_usec = 0;
 
-        ct = select(fdtcp + 1, &fds, NULL, NULL, &tv);
+        ct = select(*fdtcp + 1, &fds, NULL, NULL, &tv);
     }
-    n = read(fdtcp, buffer, 256*sizeof(char));
-    if (n == -1) return -1;
 
-    if (shutdown(fdtcp, SHUT_RDWR) == -1) {
-        perror("shutdown");
+    while ((n = read(*fdtcp, buffer + total_read, buffer_size - total_read)) > 0) {
+        total_read += n;
+    }
+    if (n == -1) {
+        return -1;
+    }
+
+    buffer[total_read] = '\0';  // Null-terminate the buffer
+
+    close(*fdtcp);
+    *fdtcp = socket(AF_INET, SOCK_STREAM, 0);
+    if (*fdtcp == -1) {
         return -1;
     }
 

@@ -23,5 +23,5 @@ apoio.txt
 tests
 command_handlers
 
-GAMES
-SCORES
+GAMES/*
+SCORES/*

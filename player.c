@@ -128,7 +128,7 @@ int main (int argc, char** argv){
             break;
         /* debug command */
         } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
-            char plid[7], key[10];
+            char key[10];
             int max_playtime, ret;
             char colors[4];
             if (sscanf(command, "debug %6s %d %c %c %c %c", plid, &max_playtime, &colors[0], &colors[1], &colors[2], &colors[3]) == 6) {

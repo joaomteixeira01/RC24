@@ -17,11 +17,14 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <dirent.h>
 
 // Array to store active games for all connected clients
 Game active_games[MAX_CLIENTS];
 
 char formatted_key[10];
+
+int verbose = 0;
 
 // ====================== Create files ======================
 
@@ -31,48 +34,58 @@ void create_directories() {
     if (mkdir("GAMES", 0777) == -1) {
         perror("Failed to create directory GAMES");
     } else {
-        printf("Directory GAMES created successfully.\n");
+        if (verbose) printf("Directory GAMES created successfully.\n");
     }
 
     // Attempt to create the "SCORES" directory
     if (mkdir("SCORES", 0777) == -1) {
         perror("Failed to create directory SCORES");
     } else {
-        printf("Directory SCORES created successfully.\n");
+         if (verbose) printf("Directory SCORES created successfully.\n");
     }
 }
 
 /* ---------------- GAMES ---------------- */ 
 // Function to create the initial game state file
 void create_game_file(const char *plid, char mode, const char *code, int max_time) {
-    char filename[50];
-    sprintf(filename, "GAMES/%s.txt", plid); // Format the filename based on PLID
+    char game_dir[100], filename[150];
 
-    // Open the file for writing
+    // Criar o diretório GAMES/<PLID>
+    sprintf(game_dir, "GAMES/%s", plid);
+    if (mkdir(game_dir, 0777) == -1 && errno != EEXIST) {
+        perror("Failed to create player directory");
+        return;
+    }
+
+    // Criar o nome do arquivo GAME_<PLID>.txt
+    sprintf(filename, "%s/GAME_%s.txt", game_dir, plid);
+
+    // Abrir o arquivo para escrita
     FILE *file = fopen(filename, "w");
     if (!file) {
         perror("Failed to create game file");
         return;
     }
 
-    // Get the current timestamp
+    // Obter o timestamp atual
     time_t current_time = time(NULL);
-    struct tm *tm_info = gmtime(&current_time); // Convert to UTC time
+    struct tm *tm_info = gmtime(&current_time);
 
-    // Format the timestamp into a human-readable string
+    // Formatar o timestamp
     char time_str[20];
     strftime(time_str, 20, "%Y-%m-%d %H:%M:%S", tm_info);
 
-    // Write the initial game state to the file
+    // Escrever o estado inicial do jogo
     fprintf(file, "%s %c %s %d %s %ld\n", plid, mode, code, max_time, time_str, current_time);
-    fclose(file); // Close the file
-    printf("Game file created: %s\n", filename);
+    fclose(file); // Fechar o arquivo
+    if (verbose) printf("Game file created: %s\n", filename);
 }
+
 
 // Function to append a trial to the game file
 void add_trial(const char *plid, const char *guess, int correct_pos, int wrong_pos, int elapsed_time) {
     char filename[50];
-    sprintf(filename, "GAMES/%s.txt", plid); // Format the filename based on PLID
+    sprintf(filename, "GAMES/%s/GAME_%s.txt", plid, plid); // Format the filename based on PLID
 
     // Open the file in append mode
     FILE *file = fopen(filename, "a");
@@ -84,83 +97,86 @@ void add_trial(const char *plid, const char *guess, int correct_pos, int wrong_p
     // Write the trial data to the file (Format => T: CCCC B W s)
     fprintf(file, "T: %s %d %d %d\n", guess, correct_pos, wrong_pos, elapsed_time);
     fclose(file);
-    printf("Trial added to game file: %s\n", filename);
+    if (verbose) printf("Trial added to game file: %s\n", filename);
 }
+
 
 // Function to finalize the game, move its file, and rename it
 void finish_game(const char *plid, const char *end_code) {
-    char filename[50];
-    sprintf(filename, "GAMES/%s.txt", plid); // Nome do ficheiro GAMES/(plid).txt
-
-    // Obter o timestamp atual
+    char game_dir[100], current_filename[150], final_filename[150];
+    char final_date[9], final_time[7];
+    int game_duration = 0, i = 0;
+    // Obter a data e a hora atuais
     time_t current_time = time(NULL);
-    struct tm *tm_info = gmtime(&current_time); // UTC
+    struct tm *tm_info = gmtime(&current_time);
 
-    // Formatando a data e hora
-    char date_time_str[20];
-    strftime(date_time_str, 20, "%Y-%m-%d %H:%M:%S", tm_info); // Formato: YYYY-MM-DD HH:MM:SS
+    // Formatar a data e a hora
+    strftime(final_date, sizeof(final_date), "%Y%m%d", tm_info); // Formato: YYYYMMDD
+    strftime(final_time, sizeof(final_time), "%H%M%S", tm_info); // Formato: HHMMSS
 
-    // Calcular a duração do jogo
-    int game_duration = 0;
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (strcmp(active_games[i].plid, plid) == 0) {
-            game_duration = (int)difftime(current_time, active_games[i].start_time);
-            break;
+    // Diretório do jogador
+    sprintf(game_dir, "GAMES/%s", plid);
+
+    // Nome do arquivo atual (GAME_<PLID>.txt)
+    sprintf(current_filename, "%s/GAME_%s.txt", game_dir, plid);
+
+    // Nome do arquivo final (YYYYMMDD_HHMMSS_(code).txt)
+    sprintf(final_filename, "%s/%s_%s_%s.txt", game_dir, final_date, final_time, end_code);
+
+    // Abrir o arquivo atual para adicionar a última linha
+    FILE *file = fopen(current_filename, "a");
+    if (file) {
+        // Formatar a linha final: "2024-12-20 17:11:06 52"
+        char final_date_time[20];
+        strftime(final_date_time, sizeof(final_date_time), "%Y-%m-%d %H:%M:%S", tm_info);
+
+        // Calcular a duração do jogo
+
+        for (i = 0; i < MAX_CLIENTS; i++) {
+            if (strcmp(active_games[i].plid, plid) == 0) {
+                game_duration = (int)difftime(current_time, active_games[i].start_time);
+                active_games[i].active = 0; // Finalizar o jogo
+                break;
+            }
         }
+        if (verbose) printf("game duration: %d\n", game_duration);
+
+        // Escrever a última linha no arquivo
+        fprintf(file, "%s %d\n", final_date_time, game_duration);
+        fclose(file);
+    } else {
+        perror("Failed to append to game file");
     }
 
-    // Abrir o ficheiro para adicionar a linha final
-    FILE *file = fopen(filename, "a");
-    if (!file) {
-        perror("Failed to open game file for appending");
-        return;
+    // Renomear o arquivo para o formato final
+    if (rename(current_filename, final_filename) == 0) {
+        if (verbose) printf("Game file renamed to: %s\n", final_filename);
+    } else {
+        perror("Failed to rename game file");
     }
-
-    // Adicionar a linha final com data, hora, duração e motivo do término
-    fprintf(file, "%s %d\n", date_time_str, game_duration);
-    fclose(file);
-
-    // Se o jogo terminou com sucesso, renomear o arquivo existente
-    if (strcmp(end_code, "W") == 0) {
-        char new_filename[100];
-        char final_date[9], final_time[7];
-
-        // Formatar a data e hora para o novo nome
-        strftime(final_date, 9, "%Y%m%d", tm_info); // Data no formato: YYYYMMDD
-        strftime(final_time, 7, "%H%M%S", tm_info); // Hora no formato: HHMMSS
-
-        // Criar o novo nome do arquivo
-        sprintf(new_filename, "GAMES/%s_%s_W.txt", final_date, final_time);
-
-        // Renomear o arquivo
-        if (rename(filename, new_filename) == 0) {
-            printf("Game file renamed to: %s\n", new_filename);
-        } else {
-            perror("Failed to rename game file");
-        }
-
-        // Calcular o score (exemplo simples: 100 - 10 * número de tentativas)
-        //int score = 100 - (trials * 10);
-        //if (score < 0) score = 0;
-
-        // Criar o arquivo de score na pasta SCORES
-        //create_score_file(plid, end_code, trials, mode, score);
+    if (strncmp(end_code, "W", 1) == 0) {
+        create_score_file(plid, active_games[i].secret_key, active_games[i].trials, active_games[i].mode, game_duration, active_games[i].max_playtime);
     }
 }
 
+
+
+
 /* ---------------- SCORES ---------------- */ 
-void create_score_file(const char *plid, const char *code, int trials, const char *mode, int score) {
+void create_score_file(const char *plid, const char *code, int trials, const char *mode, int duration, int max_playtime) {
     char filename[100];
     char date_str[20], time_str[20];
     time_t current_time = time(NULL);
     struct tm *tm_info = gmtime(&current_time); // UTC
+    int score;
 
+    score = (100 - (((float)(trials - 1) / 7) * 50)) * (1 - ((float)duration / max_playtime) * 0.5); // Calculate the score
     // Formatar data e hora
     strftime(date_str, sizeof(date_str), "%d%m%Y", tm_info); // Formato: DDMMYYYY
     strftime(time_str, sizeof(time_str), "%H%M%S", tm_info); // Formato: HHMMSS
 
     // Nome do arquivo
-    sprintf(filename, "SCORES/score_%s_%s_%s.txt", plid, date_str, time_str);
+    sprintf(filename, "SCORES/%03d_%s_%s_%s.txt", score, plid, date_str, time_str);
 
     // Abrir o arquivo para escrita
     FILE *file = fopen(filename, "w");
@@ -173,21 +189,38 @@ void create_score_file(const char *plid, const char *code, int trials, const cha
     fprintf(file, "%03d %s %s %d %s\n", score, plid, code, trials, mode);
     fclose(file);
 
-    printf("Score file created: %s\n", filename);
+    if (verbose) printf("Score file created: %s\n", filename);
 }
 
 
 
 // =====================================================
 
-int main() {
-    int udp_socket, tcp_socket, max_fd;
+int main(int argc, char *argv[]) {
+    int udp_socket, tcp_socket, max_fd, gsport;
     struct sockaddr_in udp_addr, tcp_addr, client_addr;
     fd_set read_fds;
     char buffer[BUFFER_SIZE];
     socklen_t addr_len;
+    
+    gsport = PORT;
+    
+    int opt;
+    while ((opt = getopt(argc, argv, "p:v"))!= -1) {
+        switch (opt) {
+            case 'p':
+                gsport = atoi(optarg);
+                break;
+            case 'v':
+                verbose = 1;
+                break;
+            default:
+                printf("Usage: GS [-p port] [-v]\n");
+                exit(1);
+        }
+    }
 
-    // Criar os diretórios GAMES e SCORES
+    // Create GAMES and SCORES directories
     create_directories();
 
     // Initialize the game state
@@ -203,7 +236,7 @@ int main() {
     memset(&udp_addr, 0, sizeof(udp_addr));
     udp_addr.sin_family = AF_INET;          // IPv4
     udp_addr.sin_addr.s_addr = INADDR_ANY;  // Accept connections from any address
-    udp_addr.sin_port = htons(UDP_PORT);    // Set the UDP port
+    udp_addr.sin_port = htons(gsport);    // Set the UDP port
 
     // Bind the UDP socket to the specified address
     if (bind(udp_socket, (struct sockaddr*)&udp_addr, sizeof(udp_addr)) < 0) {
@@ -222,7 +255,7 @@ int main() {
     memset(&tcp_addr, 0, sizeof(tcp_addr));
     tcp_addr.sin_family = AF_INET;          // IPv4
     tcp_addr.sin_addr.s_addr = INADDR_ANY;  // Accept connections from any address
-    tcp_addr.sin_port = htons(TCP_PORT);    // Set the TCP port
+    tcp_addr.sin_port = htons(gsport);    // Set the TCP port
 
     // Bind the TCP socket to the specified address
     if (bind(tcp_socket, (struct sockaddr*)&tcp_addr, sizeof(tcp_addr)) < 0) {
@@ -240,7 +273,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Server running on UDP port %d and TCP port %d\n", UDP_PORT, TCP_PORT);
+    if (verbose) printf("Server running on port %d\n", gsport);
 
     // Main server loop: Use select to handle multiple sockets
     while (1) {
@@ -266,7 +299,7 @@ int main() {
             //printf("Received UDP message: %s\n", buffer);
             //handle_udp_message(udp_socket, &client_addr, addr_len, buffer);
 
-            printf("Waiting for UDP message...\n"); 
+            if (verbose) printf("Waiting for UDP message...\n"); 
 
             ssize_t n = recvfrom(udp_socket, buffer, BUFFER_SIZE, 0, 
                                 (struct sockaddr*)&client_addr, &addr_len);
@@ -274,7 +307,7 @@ int main() {
                 perror("recvfrom failed");
             } else {
                 buffer[n] = '\0'; // Null-terminate received data
-                printf("Received UDP message: %s", buffer);  // Confirm reception
+                if (verbose) printf("Received UDP message: %s", buffer);  // Confirm reception
             }
 
             handle_udp_message(udp_socket, &client_addr, addr_len, buffer);
@@ -287,7 +320,7 @@ int main() {
                 perror("TCP accept");
                 continue;   // Continue handling other connections
             }
-            printf("New TCP client connected\n");
+            if (verbose) printf("New TCP client connected\n");
             handle_tcp_connection(client_socket);
             close(client_socket);   // Close the client socket after handling the request
         }
@@ -319,7 +352,7 @@ void generate_secret_key(char *secret_key) {
 }
 
 // Start a new game for the given player
-int start_new_game(const char *plid, int max_playtime, char *secret_key) {
+int start_new_game(const char *plid, int max_playtime, char *secret_key, char *mode) {
     // Check if the player already has an active game
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
@@ -331,12 +364,20 @@ int start_new_game(const char *plid, int max_playtime, char *secret_key) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (!active_games[i].active) {
             strcpy(active_games[i].plid, plid);
+            strcpy(active_games[i].mode, mode);
             active_games[i].max_playtime = max_playtime;
             active_games[i].trials = 0;
             active_games[i].active = 1;
             active_games[i].start_time = time(NULL); // Record the start time
-            generate_secret_key(active_games[i].secret_key);
-            strcpy(secret_key, active_games[i].secret_key);
+            if (strlen(secret_key) == 0){
+                generate_secret_key(active_games[i].secret_key);
+                strcpy(secret_key, active_games[i].secret_key);
+            }
+            else{
+                strcpy(active_games[i].secret_key, secret_key);
+                snprintf(formatted_key, 10, "%c %c %c %c", secret_key[0], secret_key[1], secret_key[2], secret_key[3]);
+                formatted_key[7] = '\0';
+            }
             return 1;
         }
     }
@@ -362,6 +403,9 @@ int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW,
             // Check elapsed time
             time_t current_time = time(NULL);
             int elapsed_time = (int)difftime(current_time, active_games[i].start_time);
+
+            if (verbose) {printf("Player: %s, Start Time: %ld, Current Time: %ld, Elapsed Time: %d seconds\n", 
+                   plid, active_games[i].start_time, current_time, elapsed_time);}
 
             if (difftime(current_time, active_games[i].start_time) > active_games[i].max_playtime) {
                 active_games[i].active = 0; // End the game
@@ -481,12 +525,12 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
     
     // ------------------ Start New Game ------------------
     if (strncmp(buffer, "SNG", 3) == 0) {   
-        char plid[7], secret_key[5];
+        char plid[7];
 
         if (sscanf(buffer, "SNG %6s %3d", plid, &max_playtime) == 2) {
             if (max_playtime > MAX_PLAYTIME) {
                 snprintf(response, sizeof(response), "RSG ERR\n");  // Invalid playtime
-            } else if (start_new_game(plid, max_playtime, secret_key)) {
+            } else if (start_new_game(plid, max_playtime, secret_key, "PLAY")) {
                 create_game_file(plid, 'P', secret_key, max_playtime);  // Create the game file
                 snprintf(response, sizeof(response), "RSG OK\n");   // Game started successfully
             } else {
@@ -583,7 +627,7 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
     // ------------------ Debug command ------------------
     } else if (sscanf(buffer, "DBG %6s %d %c %c %c %c", plid, &max_playtime, &c1, &c2, &c3, &c4) == 6) {
 
-        //char guess[5] = {c1, c2, c3, c4, '\0'};
+        char key[5] = {c1, c2, c3, c4, '\0'};
         //int res = processDebug(plid, &max_playtime, guess, secret_key) implement processDebug on another aux file to clean the code
         //switch (res) {
             // Invalid PLID/playtime/color codes
@@ -636,7 +680,8 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
 
             } else {
                 // Create a new game with the specified secret key
-                if (start_new_game(plid, max_playtime, secret_key)) {
+                if (start_new_game(plid, max_playtime, key, "DEBUG")) {
+                    create_game_file(plid, 'D', key, max_playtime);  // Create the game file
                     snprintf(response, sizeof(response), "RDB OK\n");  // Game successfully started
                 } else {
                     snprintf(response, sizeof(response), "RDB NOK\n");  // Failed to start the game
@@ -650,7 +695,7 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
 
     // Send the response back to the client
     sendto(udp_socket, response, strlen(response), 0, (struct sockaddr*)client_addr, client_len);
-    printf("Sent response: %s\n", response);
+    if (verbose) printf("Sent response: %s\n", response);
 }
 
 // Handle incoming TCP connections
@@ -660,7 +705,7 @@ void handle_tcp_connection(int client_socket) {
 
     // Read the client's message
     read(client_socket, buffer, BUFFER_SIZE);
-    printf("Received TCP message: %s\n", buffer);
+    if (verbose) printf("Received TCP message: %s\n", buffer);
 
     // Variable to store extracted PLID
     char plid[7]; // 6 characters + null terminator
@@ -668,9 +713,9 @@ void handle_tcp_connection(int client_socket) {
 
     // ------------------ Show trials ------------------
     if (strncmp(buffer, "STR", 3) == 0) {   
-        char trials[1024];
-        get_trials("123456", trials); // Replace "123456" with the logic to extract PLID
-        write(client_socket, trials, strlen(trials));   // Send the trial summary
+        // char trials[1024];
+        // get_trials("123456", trials); // Replace "123456" with the logic to extract PLID
+        // write(client_socket, trials, strlen(trials));   // Send the trial summary
     }
     // FIXME!!! Not sure about this resolution
     if (strncmp(buffer, "STR", 3) == 0) {
@@ -680,7 +725,7 @@ void handle_tcp_connection(int client_socket) {
             get_trials(plid, trials); // Use the extracted PLID
             write(client_socket, trials, strlen(trials)); // Send the trial summary
         } else {
-            write(client_socket, "ERR\n", 4); // Invalid syntax
+            write(client_socket, "RST NOK\n", 8); // Invalid syntax
         }
     // ------------------ Show Scoreboard ------------------
     } else if (strncmp(buffer, "SSB", 3) == 0) {   
@@ -691,14 +736,160 @@ void handle_tcp_connection(int client_socket) {
     } else {
         write(client_socket, "ERR\n", 4);   // Unknown command
     }
+
+    close(client_socket);// Close the socket for both reading and writing
 }
 
 // Generate a trial summary for a given player (PLID)
 void get_trials(const char *plid, char *buffer) {
-    snprintf(buffer, BUFFER_SIZE, "Trials for player %s:\n1. RGBY -> 2B 1W\n2. RBYO -> 1B 0W\n", plid);
+    int game = get_game(plid);
+    char fname[100], formatted_fname[25];
+    char line[100];
+    strcpy(buffer, "\0");
+    if (game == -1){ 
+        if (verbose) printf("No active game found for player %s, using last game\n", plid);
+        if(!find_last_game(plid, fname)) {
+            if (verbose) printf("No game found for player %s\n", plid);
+            sprintf(buffer, "RST NOK\n");
+            return;
+        }
+        sscanf(fname, "GAMES/%*s/%s", formatted_fname);
+        FILE *file = fopen(fname, "r");
+        if (!file) {
+            perror("Failed to open game file for reading");
+            return;
+        }
+        fseek(file, 0L, SEEK_END);
+        long int size = ftell(file);
+        rewind(file);
+        sprintf(buffer, "RST FIN %s %ld ", fname, size);
+        while (fgets(line, sizeof(line), file))
+            strcat(buffer, line);
+
+        fclose(file);
+    } else {
+        if (verbose) printf("Active game found for player %s\n", plid);
+        sprintf(formatted_fname, "GAME_%s.txt", plid);
+        sprintf(fname, "GAMES/%s/GAME_%s.txt", plid, plid);
+        FILE *file = fopen(fname, "r");
+        if (!file) {
+            perror("Failed to open game file for reading");
+            return;
+        }
+        fseek(file, 0L, SEEK_END);
+        long int size = ftell(file);
+        rewind(file);
+        sprintf(buffer, "RST ACT %s %ld ", formatted_fname, size);
+        while (fgets(line, sizeof(line), file)) 
+            strcat(buffer, line);
+
+        fclose(file);
+    }
 }
 
 // Generate the scoreboard
 void get_scoreboard(char *buffer) {
-    snprintf(buffer, BUFFER_SIZE, "Top-10 Players:\n1. 123456 - 5 trials - RGBY\n2. 654321 - 4 trials - BYRG\n");
+    Scorelist list;
+    if(!find_top_scores(&list)) {
+        if (verbose) printf("No scores found\n");
+        sprintf(buffer, "RSS EMPTY\n"); 
+        return;
+    }
+    if (verbose) printf("Scores found\n");
+    char line[100];
+    FILE *scoreboard_file = fopen("SCORES/scoreboard.txt", "w");
+    if (!scoreboard_file) {
+        perror("Failed to create scoreboard file");
+        sprintf(buffer, "RSS ERR\n");
+        return;
+    }
+
+    for (int i = 0; i < list.n_scores; i++) {
+        fprintf(scoreboard_file, "%03d %s %s %d %s\n", list.score[i], list.plid[i], list.secret_key[i], list.no_trials[i], list.mode[i]);
+    }
+    fclose(scoreboard_file);
+
+    // Read the scoreboard file to send its content
+    scoreboard_file = fopen("SCORES/scoreboard.txt", "r");
+    if (!scoreboard_file) {
+        perror("Failed to open scoreboard file for reading");
+        sprintf(buffer, "RSS ERR\n");
+        return;
+    }
+
+    fseek(scoreboard_file, 0L, SEEK_END);
+    long int size = ftell(scoreboard_file);
+    rewind(scoreboard_file);
+
+    sprintf(buffer, "RSS OK scoreboard.txt %ld ", size);
+    while (fgets(line, sizeof(line), scoreboard_file)) {
+        strcat(buffer, line);
+    }
+    fclose(scoreboard_file);
+
+}
+
+int get_game(const char *plid) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_last_game(const char *plid, char* fname) {
+    struct dirent **filelist;
+    int n_entries, found;
+    char dirname[20];
+
+    sprintf(dirname, "GAMES/%s", plid);
+    n_entries = scandir(dirname, &filelist, 0, alphasort);
+
+    found = 0;
+
+    if (n_entries <= 0)
+        return 0;
+
+    while (n_entries--) {
+        if(filelist[n_entries]->d_name[0] != '.' && !found) {
+            sprintf(fname, "GAMES/%s/%s", plid, filelist[n_entries]->d_name);
+            found = 1;
+        }
+        free(filelist[n_entries]);
+    }
+    free(filelist);
+    return found;
+}
+
+int find_top_scores(Scorelist *list){
+    struct dirent **filelist;
+    int n_entries, i_file;
+    char fname[300];
+    FILE *file;
+
+    n_entries = scandir("SCORES", &filelist, 0, alphasort);
+
+    if (n_entries <= 0)
+        return 0;
+
+    i_file = 0;
+    while(n_entries--){
+        if (filelist[n_entries]->d_name[0] != '.' && i_file < 10){
+            sprintf(fname, "SCORES/%s", filelist[n_entries]->d_name);
+            file = fopen(fname, "r");
+            if (!file) {
+                perror("Failed to open score file for reading");
+                return 0;
+            }
+            fscanf(file, "%d %s %s %d %s", &list->score[i_file], list->plid[i_file], list->secret_key[i_file], &list->no_trials[i_file], list->mode[i_file]);
+            fclose(file);
+            i_file++;
+        } 
+        free(filelist[n_entries]);
+    }
+    
+    free(filelist);
+    list->n_scores = i_file;
+    return(i_file);
 }
