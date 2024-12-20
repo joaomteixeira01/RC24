@@ -1,8 +1,8 @@
-/* 
+ /* 
  * server.c
  * 
  * This is a combined server for handling both UDP and TCP connections in a simple Mastermind-style game. 
- * It uses `select` to manage multiple clients at the same time without blocking.
+ * It uses select to manage multiple clients at the same time without blocking.
  * 
  * What it does:
  * - Handles UDP commands like starting a game (SNG), making guesses (TRY), and quitting (QUT).
@@ -90,67 +90,61 @@ void add_trial(const char *plid, const char *guess, int correct_pos, int wrong_p
 // Function to finalize the game, move its file, and rename it
 void finish_game(const char *plid, const char *end_code) {
     char filename[50];
-    sprintf(filename, "GAMES/%s.txt", plid); // File name: GAMES/(plid).txt
+    sprintf(filename, "GAMES/%s.txt", plid); // Nome do ficheiro GAMES/(plid).txt
 
-    // Get the game index using `get_game`
-    int game_id = get_game(plid);
-    if (game_id == -1) {
-        printf("No active game found for PLID: %s\n", plid);
-        return;
-    }
-
-    // Access the game data
-    Game *game = &active_games[game_id];
-
-    // Get the current timestamp
+    // Obter o timestamp atual
     time_t current_time = time(NULL);
     struct tm *tm_info = gmtime(&current_time); // UTC
 
-    // Format date and time
+    // Formatando a data e hora
     char date_time_str[20];
-    strftime(date_time_str, 20, "%Y-%m-%d %H:%M:%S", tm_info); // Format: YYYY-MM-DD HH:MM:SS
+    strftime(date_time_str, 20, "%Y-%m-%d %H:%M:%S", tm_info); // Formato: YYYY-MM-DD HH:MM:SS
 
-    // Calculate game duration
-    int game_duration = (int)difftime(current_time, game->start_time);
-    int trials = game->trials;
-    char mode = game->mode;
+    // Calcular a duração do jogo
+    int game_duration = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (strcmp(active_games[i].plid, plid) == 0) {
+            game_duration = (int)difftime(current_time, active_games[i].start_time);
+            break;
+        }
+    }
 
-    // Open the file to append the final line
+    // Abrir o ficheiro para adicionar a linha final
     FILE *file = fopen(filename, "a");
     if (!file) {
         perror("Failed to open game file for appending");
         return;
     }
 
-    // Add the final line with date, time, and game duration
+    // Adicionar a linha final com data, hora, duração e motivo do término
     fprintf(file, "%s %d\n", date_time_str, game_duration);
     fclose(file);
 
-    // If the game ended successfully, rename the file and save the score
+    // Se o jogo terminou com sucesso, renomear o arquivo existente
     if (strcmp(end_code, "W") == 0) {
         char new_filename[100];
         char final_date[9], final_time[7];
 
-        // Format the date and time for the new file name
-        strftime(final_date, 9, "%Y%m%d", tm_info); // Format: YYYYMMDD
-        strftime(final_time, 7, "%H%M%S", tm_info); // Format: HHMMSS
+        // Formatar a data e hora para o novo nome
+        strftime(final_date, 9, "%Y%m%d", tm_info); // Data no formato: YYYYMMDD
+        strftime(final_time, 7, "%H%M%S", tm_info); // Hora no formato: HHMMSS
 
-        // Create the new file name
+        // Criar o novo nome do arquivo
         sprintf(new_filename, "GAMES/%s_%s_W.txt", final_date, final_time);
 
-        // Rename the file
+        // Renomear o arquivo
         if (rename(filename, new_filename) == 0) {
             printf("Game file renamed to: %s\n", new_filename);
         } else {
             perror("Failed to rename game file");
         }
 
-        // Calculate the score (example: 100 - 10 * number of trials)
-        int score = 100 - (trials * 10);
-        if (score < 0) score = 0;
+        // Calcular o score (exemplo simples: 100 - 10 * número de tentativas)
+        //int score = 100 - (trials * 10);
+        //if (score < 0) score = 0;
 
-        // Create the score file
-        create_score_file(plid, end_code, trials, mode, score);
+        // Criar o arquivo de score na pasta SCORES
+        //create_score_file(plid, end_code, trials, mode, score);
     }
 }
 
@@ -358,125 +352,121 @@ void format_secret_key(const char *secret_key, char *formatted_key) {
 
 // Process a player's guess and update the game state
 int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW, char *secret_key) {
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
 
-    // Get the index of the active game using the get_game function
-    int game_id = get_game(plid);
-    if (game_id == -1) {
-        return -4; // No active game found
-    }
+            *nB = *nW = 0;
+            int color_counts[6] = {0};
+            const char colors[] = "RGBYOP";
 
-    // Access the active game using the retrieved index
-    Game *game = &active_games[game_id];
+            // Check elapsed time
+            time_t current_time = time(NULL);
+            int elapsed_time = (int)difftime(current_time, active_games[i].start_time);
 
-    *nB = *nW = 0;                  // Initialize "nB" and "nW" to 0
-    int color_counts[6] = {0};      // Array to track counts of each color in the secret key
-    const char colors[] = "RGBYOP"; // Valid colors for the game
+            if (difftime(current_time, active_games[i].start_time) > active_games[i].max_playtime) {
+                active_games[i].active = 0; // End the game
+                format_secret_key(active_games[i].secret_key, secret_key);
+                return -5; // Time exceeded
+            }
 
-    // Check elapsed time for the game
-    time_t current_time = time(NULL);
-    int elapsed_time = (int)difftime(current_time, game->start_time);
+            // Validate PLID
+            if (strlen(plid) != 6 || strspn(plid, "0123456789") != 6) {
+                return -1; // ERR: Invalid PLID
+            }
 
-    // Time exceeded
-    if (elapsed_time > game->max_playtime) {
-        game->active = 0; // Mark the game as inactive
-        format_secret_key(game->secret_key, secret_key); // Format the secret key
-        return -5; 
-    }
-
-    // Validate PLID
-    if (strlen(plid) != 6 || strspn(plid, "0123456789") != 6) {
-        return -1; // Invalid PLID
-    }
-
-    // Validate the color codes in the guess
-    for (int i = 0; i < 4; i++) {
-        if (!strchr(colors, guess[i])) {
-            return -1; 
-        }
-    }
-
-    // Validate the trial number
-    if (nT != game->trials + 1) {
-        if (nT == game->trials && strcmp(game->guesses[game->trials - 1], guess) == 0) {
-            return 0; // Resending the last valid guess
-        }
-        return -2; // Invalid trial number
-    }
-
-    // Check for duplicate guesses
-    for (int i = 0; i < game->trials; i++) {
-        if (strcmp(game->guesses[i], guess) == 0) {
-            return -3; // Duplicate guess
-        }
-    }
-
-    // Calculate correct positions (nB) and correct colors in wrong positions (nW)
-    for (int i = 0; i < 4; i++) {
-        if (guess[i] == game->secret_key[i]) {
-            (*nB)++;
-        } else {
-            for (int j = 0; j < 6; j++) {
-                if (game->secret_key[i] == colors[j]) {
-                    color_counts[j]++;
-                    break;
+            // Validate the color codes in the guess
+            for (int i = 0; i < 4; i++) {
+                if (!strchr(colors, guess[i])) {
+                    return -1; // ERR: Invalid color code
                 }
             }
-        }
-    }
 
-    for (int i = 0; i < 4; i++) {
-        if (guess[i] != game->secret_key[i]) {
-            for (int j = 0; j < 6; j++) {
-                if (guess[i] == colors[j] && color_counts[j] > 0) {
-                    (*nW)++;
-                    color_counts[j]--;
-                    break;
+            /**
+             * TODO: 
+             *  - Resend scenario
+            */
+
+            if (nT != active_games[i].trials + 1) {
+                if (nT == active_games[i].trials &&
+                    strcmp(active_games[i].guesses[active_games[i].trials - 1], guess) == 0) {
+                    return 0; // OK: Resending the last valid guess
+                }
+                return -2; // INV: Invalid trial number
+            }
+
+            for (int j = 0; j < active_games[i].trials; j++) {
+                if (strcmp(active_games[i].guesses[j], guess) == 0) {
+                    return -3; // DUP: Duplicate guess
                 }
             }
+
+            for (int j = 0; j < 4; j++) {
+                if (guess[j] == active_games[i].secret_key[j]) {
+                    (*nB)++;
+                } else {
+                    for (int k = 0; k < 6; k++) {
+                        if (active_games[i].secret_key[j] == colors[k]) {
+                            color_counts[k]++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (int j = 0; j < 4; j++) {
+                if (guess[j] != active_games[i].secret_key[j]) {
+                    for (int k = 0; k < 6; k++) {
+                        if (guess[j] == colors[k] && color_counts[k] > 0) {
+                            (*nW)++;
+                            color_counts[k]--;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            strncpy(active_games[i].guesses[active_games[i].trials], guess, 4);
+            active_games[i].guesses[active_games[i].trials][4] = '\0';
+            active_games[i].trials++;
+            add_trial(plid, guess, *nB, *nW, elapsed_time); // Pass the start time
+
+            if (*nB == 4) {
+                active_games[i].active = 0;
+                return 1; // Game won
+            }
+
+            if (active_games[i].trials >= MAX_ATTEMPTS) {
+                active_games[i].active = 0;
+                format_secret_key(active_games[i].secret_key, secret_key);
+                return 2; // Game over: Maximum attempts reached
+            }
+
+            return 0; // OK: Valid guess
         }
     }
 
-    // Save the guess in the game's history
-    strncpy(game->guesses[game->trials], guess, 4);
-    game->guesses[game->trials][4] = '\0'; // Null-terminate the string
-    game->trials++; // Increment trial count
-
-    // Record the trial in the game file
-    add_trial(plid, guess, *nB, *nW, elapsed_time);
-
-    // Check if the guess matches the secret key
-    if (*nB == 4) {
-        game->active = 0; // Mark the game as inactive
-        return 1; // Game won
-    }
-
-    // Check if maximum attempts have been reached
-    if (game->trials > MAX_ATTEMPTS) {
-        game->active = 0; // Mark the game as inactive
-        format_secret_key(game->secret_key, secret_key); // Format the secret key
-        return 2; // Maximum attempts reached
-    }
-
-    return 0; // Valid guess
+    return -4; // NOK: No active game found
 }
 
-//int process_debug(const char *plid, int *max_playtime, const char *guess) {}
-
-
-// Handle the `quit` command
+// Handle the quit command
 void quit_game(const char *plid, char *response) {
-    int game_id = get_game(plid);
+    char secret_key[10];
+    int game_found = 0;
 
-    if (game_id == -1) {
-        snprintf(response, BUFFER_SIZE, "RQT NOK\n"); // No active game found
-        return;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
+            game_found = 1;
+            active_games[i].active = 0;
+            finish_game(plid, "Q"); // Finalize the game using finish_game with "Q" for quit
+            format_secret_key(active_games[i].secret_key, secret_key);
+            snprintf(response, BUFFER_SIZE, "RQT OK %s\n", secret_key);
+            return;
+        }
     }
-
-    active_games[game_id].active = 0; // Mark teh game as inactive
-    finish_game(plid, "Q"); // Finalize the game using `finish_game` with "Q" for quit
-    snprintf(response, BUFFER_SIZE, "RQT OK %s\n", formatted_key);
+    if (!game_found) {
+        snprintf(response, BUFFER_SIZE, "RQT NOK\n"); // No active game found
+    }
 }
-
 
 // Handle incoming UDP messages
 void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t client_len, char *buffer) {
@@ -563,9 +553,6 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
                         snprintf(response, sizeof(response), "RTR ETM %s\n", secret_key); 
                         break; 
 
-                    case -6: // ENT: Max attempts reached
-                        // TODO!!
-
                     default:
                         snprintf(response, sizeof(response), "RTR ERR\n");
                         break;
@@ -597,7 +584,7 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
     } else if (sscanf(buffer, "DBG %6s %d %c %c %c %c", plid, &max_playtime, &c1, &c2, &c3, &c4) == 6) {
 
         //char guess[5] = {c1, c2, c3, c4, '\0'};
-        //int res = processDebug(plid, &max_playtime, guess) implement processDebug on another aux file to clean the code
+        //int res = processDebug(plid, &max_playtime, guess, secret_key) implement processDebug on another aux file to clean the code
         //switch (res) {
             // Invalid PLID/playtime/color codes
         //    case -1:
@@ -714,17 +701,4 @@ void get_trials(const char *plid, char *buffer) {
 // Generate the scoreboard
 void get_scoreboard(char *buffer) {
     snprintf(buffer, BUFFER_SIZE, "Top-10 Players:\n1. 123456 - 5 trials - RGBY\n2. 654321 - 4 trials - BYRG\n");
-}
-
-
-// -------------- AUX -----------------
-
-// Função para encontrar o índice do jogo ativo pelo PLID
-int get_game(const char *plid) {
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (active_games[i].active && strcmp(active_games[i].plid, plid) == 0) {
-            return i; // Retorna o índice do jogo ativo
-        }
-    }
-    return -1; // game not found
 }

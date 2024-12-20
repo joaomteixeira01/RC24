@@ -41,9 +41,4 @@ int process_guess(const char *plid, const char *guess, int nT, int *nB, int *nW,
 void quit_game(const char *plid, char *response);
 void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen_t client_len, char *buffer);
 void handle_tcp_connection(int client_socket);
-void get_trials(const char *plid, char *buffer);
-void get_scoreboard(char *buffer);
-int get_game(const char *plid);
-
-
-#endif
+v
