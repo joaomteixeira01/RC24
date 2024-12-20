@@ -13,6 +13,7 @@
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 256
 #define MAX_ATTEMPTS 8
+#define MAX_PLAYTIME 600
 
 // Structs
 typedef struct {
@@ -23,6 +24,7 @@ typedef struct {
     int active;            // Active game flag (1: active, 0: inactive)
     char guesses[8][5];    // Histórico de até 8 tentativas (4 cores + '\0')
     time_t start_time;     // Start time of the game
+    char mode[10];         // store the game mode (PLAY or DEBUG)
 } Game;
 
 typedef struct {
@@ -41,6 +43,7 @@ void handle_udp_message(int udp_socket, struct sockaddr_in *client_addr, socklen
 void handle_tcp_connection(int client_socket);
 void get_trials(const char *plid, char *buffer);
 void get_scoreboard(char *buffer);
+int get_game(const char *plid);
 
 
 #endif

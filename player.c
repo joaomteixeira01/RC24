@@ -138,9 +138,11 @@ int main (int argc, char** argv){
         } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
             char plid[7], key[10];
             int max_playtime;
-            if (sscanf(command, "debug %6s %d %s", plid, &max_playtime, key) == 3)
+            char colors[4];
+            if (sscanf(command, "debug %6s %d %c %c %c %c", plid, &max_playtime, &colors[0], &colors[1], &colors[2], &colors[3]) == 6) {
+                snprintf(key, sizeof(key), "%c %c %c %c", colors[0], colors[1], colors[2], colors[3]);
                 handle_debug(fdudp, resudp, plid, max_playtime, key);
-            else
+            } else
                 printf("Usage: debug PLID max_playtime C1 C2 C3 C4\n");
         } else {
             printf("Unknown command\n");

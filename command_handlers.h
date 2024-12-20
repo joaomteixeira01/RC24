@@ -3,6 +3,8 @@
 
 #include <netdb.h>  // For struct addrinfo
 
+#define MAX_PLAYTIME 600
+
 /**
  * Handle the "start" command.
  * Sends a message to the Game Server (GS) to start a new game with the specified PLID and max_playtime.

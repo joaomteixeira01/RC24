@@ -10,7 +10,6 @@ udp_server
 player
 server
 
-
 # Object files
 *.o
 
@@ -22,3 +21,6 @@ apoio.txt
 
 tests
 command_handlers
+
+GAMES
+SCORES
