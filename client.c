@@ -43,7 +43,6 @@ int initialize_sockets(int* fdtcp, int* fdudp, struct addrinfo **restcp, struct 
     return 0;
 }
 
-// TODO maybe (probably) implement select for timeouts
 
 int send_udp(int fdudp, const char* message, struct addrinfo *resudp, char *buffer) {
     printf("Sending message to server: %s\n", message);  // Log the message being sent
@@ -89,7 +88,6 @@ int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buff
 
         ct = select(fdtcp + 1, &fds, NULL, NULL, &tv);
     }
-    sleep(1);
     n = read(fdtcp, buffer, 256*sizeof(char));
     if (n == -1) return -1;
 

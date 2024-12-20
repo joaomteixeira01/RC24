@@ -1,14 +1,22 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -g
-SOURCES = client.c command_handlers.c player.c
-OBJECTS = $(SOURCES:.c=.o)
-TARGET = player
+CLIENT_SOURCES = client.c command_handlers.c player.c
+SERVER_SOURCES = server.c
+CLIENT_OBJECTS = $(CLIENT_SOURCES:.c=.o)
+SERVER_OBJECTS = $(SERVER_SOURCES:.c=.o)
+CLIENT_TARGET = player
+SERVER_TARGET = GS
 
-all: $(TARGET)
-	$(CC) -o $(TARGET) $(OBJECTS)
+all: $(CLIENT_TARGET) $(SERVER_TARGET)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) -c $(SOURCES)
+$(CLIENT_TARGET): $(CLIENT_OBJECTS)
+	$(CC) -o $(CLIENT_TARGET) $(CLIENT_OBJECTS)
+
+$(SERVER_TARGET): $(SERVER_OBJECTS)
+	$(CC) -o $(SERVER_TARGET) $(SERVER_OBJECTS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	rm -f $(CLIENT_OBJECTS) $(SERVER_OBJECTS) $(CLIENT_TARGET) $(SERVER_TARGET)

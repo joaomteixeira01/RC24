@@ -9,6 +9,7 @@ tcp_server
 udp_server
 player
 server
+GS
 
 
 # Object files
