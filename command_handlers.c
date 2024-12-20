@@ -212,11 +212,10 @@ int handle_debug(int fdudp, struct addrinfo *resudp, char *plid, int max_playtim
     char message[256];
     char buffer[256];
 
-    if (max_playtime > 600 || max_playtime < 1) {
+    if (max_playtime > MAX_PLAYTIME || max_playtime < 1) {
         printf("Error: Invalid max playtime\n");
         return -1;
     }
-
 
     // Format the DBG request message
     snprintf(message, sizeof(message), "DBG %s %03d %s\n", plid, max_playtime, key);

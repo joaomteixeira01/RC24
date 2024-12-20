@@ -79,6 +79,7 @@ int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buff
     struct timeval tv;
 
     if (connect(fdtcp, restcp->ai_addr, restcp->ai_addrlen) == -1) return -1;
+
     while (ct == 0){
         n = write(fdtcp, message, strlen(message) + 1);
         if (n == -1) return -1;
@@ -89,6 +90,7 @@ int send_tcp(int fdtcp, const char* message, struct addrinfo *restcp, char *buff
         ct = select(fdtcp + 1, &fds, NULL, NULL, &tv);
     }
     n = read(fdtcp, buffer, 256*sizeof(char));
+    
     if (n == -1) return -1;
 
     if (shutdown(fdtcp, SHUT_RDWR) == -1) {

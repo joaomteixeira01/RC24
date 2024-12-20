@@ -11,7 +11,6 @@ player
 server
 GS
 
-
 # Object files
 *.o
 
@@ -23,3 +22,6 @@ apoio.txt
 
 tests
 command_handlers
+
+GAMES
+SCORES

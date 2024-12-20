@@ -127,6 +127,16 @@ int main (int argc, char** argv){
             }
             break;
         /* debug command */
+<<<<<<< HEAD
+        } else if (strncmp(command, "debug", 5) == 0) { // TODO what is this
+            char plid[7], key[10];
+            int max_playtime;
+            char colors[4];
+            if (sscanf(command, "debug %6s %d %c %c %c %c", plid, &max_playtime, &colors[0], &colors[1], &colors[2], &colors[3]) == 6) {
+                snprintf(key, sizeof(key), "%c %c %c %c", colors[0], colors[1], colors[2], colors[3]);
+                handle_debug(fdudp, resudp, plid, max_playtime, key);
+            } else
+=======
         } else if (strncmp(command, "debug", 5) == 0) {
             char key[10];
             int max_playtime, ret;
@@ -139,6 +149,7 @@ int main (int argc, char** argv){
                 if (ret == 0) in_game = true;
             }
             else
+>>>>>>> 6332111bc2dc591944acf225935edc60401afb2d
                 printf("Usage: debug PLID max_playtime C1 C2 C3 C4\n");
         } else {
             printf("Unknown command\n");
